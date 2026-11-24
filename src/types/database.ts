@@ -1,0 +1,534 @@
+/**
+ * TICKORA database types.
+ *
+ * This file mirrors `supabase/migrations/*` and is intentionally committed so
+ * the application type-checks without a live project. Once a project is linked,
+ * regenerate it with:
+ *   npm run db:types
+ */
+
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+export type AppRole = "attendee" | "organizer" | "admin" | "scanner";
+export type OrganizerStatus = "pending" | "approved" | "rejected" | "suspended";
+export type EventStatus =
+  | "draft"
+  | "pending_approval"
+  | "published"
+  | "rejected"
+  | "suspended"
+  | "cancelled"
+  | "completed";
+export type BookingStatus =
+  | "pending_payment"
+  | "confirmed"
+  | "expired"
+  | "cancelled"
+  | "refunded";
+export type PaymentProvider = "demo" | "mtn_momo" | "orange_money" | "card";
+export type PaymentStatus =
+  | "initiated"
+  | "pending"
+  | "requires_action"
+  | "succeeded"
+  | "failed"
+  | "refunded"
+  | "cancelled";
+export type TicketStatus = "valid" | "used" | "cancelled" | "refunded";
+export type RefundStatus = "requested" | "approved" | "rejected" | "processed";
+export type PayoutStatus =
+  | "requested"
+  | "approved"
+  | "processing"
+  | "paid"
+  | "rejected";
+
+export interface ProfileRow {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  avatar_url: string | null;
+  is_suspended: boolean;
+  created_at: string;
+  updated_at: string;
+}
+export interface UserRoleRow {
+  id: string;
+  user_id: string;
+  role: AppRole;
+  granted_at: string;
+}
+export interface OrganizerRow {
+  id: string;
+  owner_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  logo_url: string | null;
+  banner_url: string | null;
+  email: string | null;
+  phone: string | null;
+  city: string | null;
+  status: OrganizerStatus;
+  rejection_reason: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface CategoryRow {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
+  image_url: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+export interface EventRow {
+  id: string;
+  organizer_id: string;
+  category_id: string | null;
+  title: string;
+  slug: string;
+  description: string;
+  short_description: string | null;
+  cover_image_url: string | null;
+  banner_image_url: string | null;
+  venue_name: string;
+  address: string | null;
+  city: string;
+  start_at: string;
+  end_at: string;
+  timezone: string;
+  status: EventStatus;
+  rejection_reason: string | null;
+  submitted_at: string | null;
+  published_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  is_featured: boolean;
+  views_count: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface TicketTypeRow {
+  id: string;
+  event_id: string;
+  name: string;
+  description: string | null;
+  price_xaf: number;
+  quantity_total: number;
+  quantity_sold: number;
+  quantity_reserved: number;
+  min_per_order: number;
+  max_per_order: number;
+  sales_start_at: string | null;
+  sales_end_at: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+export interface BookingRow {
+  id: string;
+  reference: string;
+  attendee_id: string;
+  event_id: string;
+  status: BookingStatus;
+  subtotal_xaf: number;
+  service_fee_xaf: number;
+  total_xaf: number;
+  currency: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string | null;
+  reservation_expires_at: string | null;
+  confirmed_at: string | null;
+  cancelled_at: string | null;
+  refunded_at: string | null;
+  client_idempotency_key: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface BookingItemRow {
+  id: string;
+  booking_id: string;
+  ticket_type_id: string;
+  quantity: number;
+  unit_price_xaf: number;
+  line_total_xaf: number;
+  created_at: string;
+}
+export interface InventoryReservationRow {
+  id: string;
+  booking_id: string;
+  ticket_type_id: string;
+  quantity: number;
+  status: "active" | "consumed" | "released";
+  expires_at: string;
+  released_at: string | null;
+  created_at: string;
+}
+export interface PaymentRow {
+  id: string;
+  booking_id: string;
+  provider: PaymentProvider;
+  status: PaymentStatus;
+  amount_xaf: number;
+  currency: string;
+  provider_reference: string | null;
+  idempotency_key: string;
+  is_demo: boolean;
+  failure_reason: string | null;
+  metadata: Json;
+  initiated_at: string;
+  verified_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface PaymentWebhookEventRow {
+  id: string;
+  provider: string;
+  external_event_id: string;
+  payload: Json;
+  signature_valid: boolean;
+  processed_at: string | null;
+  processing_error: string | null;
+  created_at: string;
+}
+export interface RefundRow {
+  id: string;
+  payment_id: string;
+  booking_id: string;
+  amount_xaf: number;
+  status: RefundStatus;
+  reason: string;
+  requested_by: string;
+  reviewed_by: string | null;
+  admin_note: string | null;
+  provider_reference: string | null;
+  processed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface TicketRow {
+  id: string;
+  booking_id: string;
+  event_id: string;
+  ticket_type_id: string;
+  attendee_id: string;
+  attendee_name: string;
+  ticket_reference: string;
+  qr_token: string;
+  qr_token_hash: string;
+  status: TicketStatus;
+  checked_in_at: string | null;
+  issued_at: string;
+  created_at: string;
+}
+export interface EventStaffRow {
+  id: string;
+  event_id: string;
+  user_id: string;
+  role: "scanner" | "manager";
+  assigned_by: string | null;
+  created_at: string;
+}
+export interface CheckInRow {
+  id: string;
+  ticket_id: string;
+  event_id: string;
+  scanned_by: string;
+  method: "qr" | "manual";
+  device_info: string | null;
+  scanned_at: string;
+}
+export interface ScanAttemptRow {
+  id: string;
+  actor_id: string;
+  event_id: string | null;
+  ticket_id: string | null;
+  ticket_reference: string | null;
+  method: "qr" | "manual";
+  outcome: "success" | "invalid" | "duplicate";
+  code: string | null;
+  created_at: string;
+}
+export interface NotificationRow {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string;
+  href: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+export interface PayoutRow {
+  id: string;
+  organizer_id: string;
+  amount_xaf: number;
+  status: PayoutStatus;
+  method: string;
+  destination: string;
+  reference: string | null;
+  admin_note: string | null;
+  requested_by: string;
+  reviewed_by: string | null;
+  processed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+export interface AuditLogRow {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  metadata: Json;
+  ip_address: string | null;
+  created_at: string;
+}
+export interface PlatformSettingRow {
+  key: string;
+  value: Json;
+  description: string | null;
+  updated_by: string | null;
+  updated_at: string;
+}
+export interface NewsletterRow {
+  id: string;
+  email: string;
+  source: string;
+  created_at: string;
+}
+export interface ContactMessageRow {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  status: string;
+  created_at: string;
+}
+
+/**
+ * Supabase's `GenericTable` constraint requires `Record<string, unknown>`.
+ * Interfaces do not get an implicit index signature, so we normalise every
+ * row shape through a mapped type before handing it to the client.
+ */
+type Shape<T> = { [K in keyof T]: T[K] };
+
+type Table<R, I = Partial<R>, U = Partial<R>> = {
+  Row: Shape<R>;
+  Insert: Shape<I>;
+  Update: Shape<U>;
+  Relationships: [];
+};
+
+interface EventSalesSummaryRow {
+  event_id: string | null;
+  organizer_id: string | null;
+  event_title: string | null;
+  tickets_sold: number | null;
+  orders: number | null;
+  gross_revenue: number | null;
+  checked_in: number | null;
+}
+
+interface OrganizerDailySalesRow {
+  organizer_id: string | null;
+  day: string | null;
+  revenue_xaf: number | null;
+  orders: number | null;
+}
+
+interface PlatformDailyRevenueRow {
+  day: string | null;
+  organizer_revenue_xaf: number | null;
+  platform_revenue_xaf: number | null;
+  orders: number | null;
+}
+
+export type Database = {
+  public: {
+    Tables: {
+      profiles: Table<ProfileRow>;
+      user_roles: Table<UserRoleRow>;
+      organizers: Table<OrganizerRow>;
+      categories: Table<CategoryRow>;
+      events: Table<EventRow>;
+      ticket_types: Table<TicketTypeRow>;
+      bookings: Table<BookingRow>;
+      booking_items: Table<BookingItemRow>;
+      inventory_reservations: Table<InventoryReservationRow>;
+      payments: Table<PaymentRow>;
+      payment_webhook_events: Table<PaymentWebhookEventRow>;
+      refunds: Table<RefundRow>;
+      tickets: Table<TicketRow>;
+      event_staff: Table<EventStaffRow>;
+      check_ins: Table<CheckInRow>;
+      scan_attempts: Table<ScanAttemptRow>;
+      notifications: Table<NotificationRow>;
+      organizer_payouts: Table<PayoutRow>;
+      audit_logs: Table<AuditLogRow>;
+      platform_settings: Table<PlatformSettingRow>;
+      newsletter_subscribers: Table<NewsletterRow>;
+      contact_messages: Table<ContactMessageRow>;
+    };
+    Views: {
+      event_sales_summary: { Row: Shape<EventSalesSummaryRow>; Relationships: [] };
+      organizer_daily_sales: { Row: Shape<OrganizerDailySalesRow>; Relationships: [] };
+      platform_daily_revenue: { Row: Shape<PlatformDailyRevenueRow>; Relationships: [] };
+    };
+    Functions: {
+      reserve_booking: {
+        Args: {
+          p_event_id: string;
+          p_items: Json;
+          p_contact_name: string;
+          p_contact_email: string;
+          p_contact_phone: string;
+          p_idempotency_key?: string;
+        };
+        Returns: Json;
+      };
+      create_payment_intent: {
+        Args: {
+          p_booking_id: string;
+          p_provider: PaymentProvider;
+        };
+        Returns: Json;
+      };
+      confirm_demo_payment: {
+        Args: { p_payment_id: string };
+        Returns: Json;
+      };
+      check_in_ticket: {
+        Args: { p_token: string; p_event_id?: string | null; p_method?: string };
+        Returns: Json;
+      };
+      expire_stale_bookings: {
+        Args: { p_limit?: number };
+        Returns: number;
+      };
+      get_my_ticket_qr: {
+        Args: { p_ticket_id: string };
+        Returns: string;
+      };
+      organizer_available_balance: {
+        Args: { p_organizer_id: string };
+        Returns: number;
+      };
+      request_payout: {
+        Args: {
+          p_organizer_id: string;
+          p_amount_xaf: number;
+          p_method: string;
+          p_destination: string;
+        };
+        Returns: string;
+      };
+      admin_review_event: {
+        Args: { p_event_id: string; p_approve: boolean; p_reason?: string | null };
+        Returns: Json;
+      };
+      admin_review_organizer: {
+        Args: {
+          p_organizer_id: string;
+          p_approve: boolean;
+          p_reason?: string | null;
+        };
+        Returns: Json;
+      };
+      admin_review_refund: {
+        Args: { p_refund_id: string; p_approve: boolean; p_note?: string | null };
+        Returns: Json;
+      };
+      admin_review_payout: {
+        Args: {
+          p_payout_id: string;
+          p_status: string;
+          p_note?: string | null;
+        };
+        Returns: Json;
+      };
+      save_event_draft: {
+        Args: { p_event: Json; p_ticket_types: Json };
+        Returns: string;
+      };
+      submit_event_for_approval: {
+        Args: { p_event_id: string };
+        Returns: Json;
+      };
+      admin_suspend_event: {
+        Args: { p_event_id: string; p_reason: string };
+        Returns: Json;
+      };
+      cancel_booking: {
+        Args: { p_booking_id: string };
+        Returns: Json;
+      };
+      add_event_staff_by_email: {
+        Args: { p_event_id: string; p_email: string; p_role?: string };
+        Returns: Json;
+      };
+      record_event_view: {
+        Args: { p_event_id: string };
+        Returns: undefined;
+      };
+      admin_log_action: {
+        Args: {
+          p_action: string;
+          p_entity_type: string;
+          p_entity_id?: string | null;
+          p_metadata?: Json;
+        };
+        Returns: undefined;
+      };
+      admin_settle_refund: {
+        Args: {
+          p_refund_id: string;
+          p_reference?: string | null;
+          p_note?: string | null;
+        };
+        Returns: Json;
+      };
+      record_scan_attempt: {
+        Args: {
+          p_event_id?: string | null;
+          p_ticket_id?: string | null;
+          p_ticket_reference?: string | null;
+          p_method?: string;
+          p_outcome: string;
+          p_code?: string | null;
+        };
+        Returns: string;
+      };
+    };
+    Enums: {
+      app_role: AppRole;
+      organizer_status: OrganizerStatus;
+      event_status: EventStatus;
+      booking_status: BookingStatus;
+      payment_provider: PaymentProvider;
+      payment_status: PaymentStatus;
+      ticket_status: TicketStatus;
+      refund_status: RefundStatus;
+      payout_status: PayoutStatus;
+    };
+    CompositeTypes: Record<string, never>;
+  };
+};
