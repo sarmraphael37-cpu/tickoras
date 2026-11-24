@@ -5,6 +5,8 @@ import type { PaymentProvider, PaymentStatus } from "@/types/database";
 export interface PaymentInitContext {
   bookingId: string;
   bookingReference: string;
+  /** Internal payment.provider_reference — used as the provider transaction id. */
+  providerReference: string;
   amountXaf: number;
   attendeeName: string;
   attendeeEmail: string;
@@ -47,6 +49,16 @@ export interface PaymentProviderAdapter {
     rawBody: string,
     headers: Headers,
   ): Promise<WebhookVerification>;
+  /**
+   * Optional: query the provider for the authoritative status of a
+   * transaction. Used for user-initiated status refreshes and webhook
+   * reconciliation. Never trust a browser redirect as proof of payment.
+   */
+  getPaymentStatus?(providerReference: string): Promise<{
+    status: PaymentStatus;
+    amountXaf: number | null;
+    reason?: string;
+  }>;
 }
 
 export class PaymentProviderNotConfiguredError extends Error {

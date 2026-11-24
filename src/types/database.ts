@@ -416,6 +416,14 @@ export type Database = {
         Args: { p_payment_id: string };
         Returns: Json;
       };
+      process_verified_payment: {
+        Args: {
+          p_payment_id: string;
+          p_provider_reference: string;
+          p_payload?: Json;
+        };
+        Returns: Json;
+      };
       check_in_ticket: {
         Args: { p_token: string; p_event_id?: string | null; p_method?: string };
         Returns: Json;

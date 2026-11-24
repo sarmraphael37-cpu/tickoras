@@ -4,26 +4,11 @@ const pendingReason =
   "Integration scaffolded. Provider credentials, API contract and signature verification must be completed before go-live.";
 
 /**
- * Real payment adapters deliberately refuse to produce fake successes.
- * They are enabled only once a provider-specific implementation, server-side
- * signature verification and reconciliation job have been completed.
+ * Orange Money Web Payment and card processing remain scaffolded until
+ * merchant credentials, the provider API contract and signature/status
+ * verification are completed. They deliberately refuse to produce fake
+ * successes.
  */
-export const mtnMomoAdapter: PaymentProviderAdapter = {
-  id: "mtn_momo",
-  name: "MTN Mobile Money",
-  description: "MTN MoMo collection for Cameroon (XAF).",
-  mode: "live",
-  isConfigured: false,
-  supportsRefunds: false,
-  unavailableReason: pendingReason,
-  async initiate() {
-    throw new Error(pendingReason);
-  },
-  async parseWebhook() {
-    throw new Error(pendingReason);
-  },
-};
-
 export const orangeMoneyAdapter: PaymentProviderAdapter = {
   id: "orange_money",
   name: "Orange Money",

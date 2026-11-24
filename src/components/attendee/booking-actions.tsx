@@ -1,7 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
-import { cancelBooking, requestRefund } from "@/app/actions/bookings";
+import {
+  cancelBooking,
+  checkPaymentStatus,
+  requestRefund,
+} from "@/app/actions/bookings";
 import { initialActionState } from "@/lib/action-state";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -34,6 +38,26 @@ export function CancelBookingForm({ bookingId }: { bookingId: string }) {
       {state.status === "error" ? <Alert tone="danger">{state.message}</Alert> : null}
       {state.status === "success" ? (
         <Alert tone="success">{state.message}</Alert>
+      ) : null}
+    </form>
+  );
+}
+
+export function CheckPaymentStatusForm({ bookingId }: { bookingId: string }) {
+  const [state, formAction, pending] = useActionState(
+    checkPaymentStatus,
+    initialActionState,
+  );
+
+  return (
+    <form action={formAction} className="space-y-2">
+      <input type="hidden" name="booking_id" value={bookingId} />
+      <Button type="submit" size="sm" loading={pending}>
+        {pending ? "Checking…" : "I've paid — check status"}
+      </Button>
+      {state.status === "error" ? <Alert tone="danger">{state.message}</Alert> : null}
+      {state.status === "success" ? (
+        <Alert tone="info">{state.message}</Alert>
       ) : null}
     </form>
   );

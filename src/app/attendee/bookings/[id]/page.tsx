@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import {
   CancelBookingForm,
+  CheckPaymentStatusForm,
   RefundRequestForm,
 } from "@/components/attendee/booking-actions";
 import { ReservationTimer } from "@/components/attendee/reservation-timer";
@@ -57,6 +58,11 @@ export default async function AttendeeBookingPage({
     !openRefund &&
     tickets.some((ticket) => ticket.status !== "refunded");
   const pending = booking.status === "pending_payment";
+  const pendingLivePayment = payments.find(
+    (payment) =>
+      !payment.isDemo &&
+      ["pending", "initiated", "requires_action"].includes(payment.status),
+  );
 
   return (
     <div className="space-y-5">
@@ -101,6 +107,9 @@ export default async function AttendeeBookingPage({
             {booking.reservationExpiresAt ? (
               <ReservationTimer expiresAt={booking.reservationExpiresAt} />
             ) : null}
+            {pendingLivePayment ? (
+              <CheckPaymentStatusForm bookingId={booking.id} />
+            ) : null}
             <Link
               href={`/attendee/checkout/${booking.id}`}
               className="inline-flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-2 text-[11.5px] font-semibold text-white hover:bg-brand-700"
@@ -110,6 +119,14 @@ export default async function AttendeeBookingPage({
             </Link>
           </div>
         </div>
+      ) : null}
+
+      {pendingLivePayment ? (
+        <Alert tone="info" title="Waiting for your approval">
+          A payment request was sent to your phone. Approve the prompt, then use
+          &quot;I&apos;ve paid — check status&quot; above. Tickets are issued only
+          after the provider confirms the money.
+        </Alert>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">

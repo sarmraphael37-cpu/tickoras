@@ -2,7 +2,8 @@ import "server-only";
 
 import type { PaymentProvider } from "@/types/database";
 import { demoPaymentAdapter } from "@/lib/payments/demo";
-import { cardPaymentAdapter, mtnMomoAdapter, orangeMoneyAdapter } from "@/lib/payments/live";
+import { mtnMomoAdapter } from "@/lib/payments/mtn";
+import { cardPaymentAdapter, orangeMoneyAdapter } from "@/lib/payments/live";
 import type { PaymentProviderAdapter } from "@/lib/payments/types";
 
 const adapters: Record<PaymentProvider, PaymentProviderAdapter> = {

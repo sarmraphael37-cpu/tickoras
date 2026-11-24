@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { demoPaymentAdapter } from "@/lib/payments/demo";
+import { mtnMomoAdapter } from "@/lib/payments/mtn";
 import {
   cardPaymentAdapter,
-  mtnMomoAdapter,
   orangeMoneyAdapter,
 } from "@/lib/payments/live";
 import { friendlyDbError } from "@/lib/errors";
@@ -28,8 +28,12 @@ describe("payment adapters", () => {
     for (const adapter of [mtnMomoAdapter, orangeMoneyAdapter, cardPaymentAdapter]) {
       expect(adapter.mode).toBe("live");
       expect(adapter.isConfigured).toBe(false);
-      expect(adapter.unavailableReason).toContain("signature verification");
+      expect(adapter.unavailableReason).toBeTruthy();
     }
+    expect(orangeMoneyAdapter.unavailableReason).toContain(
+      "signature verification",
+    );
+    expect(mtnMomoAdapter.unavailableReason).toContain("credentials");
   });
 
   it("does not fabricate live payment successes", async () => {
@@ -37,6 +41,7 @@ describe("payment adapters", () => {
       mtnMomoAdapter.initiate({
         bookingId: "00000000-0000-4000-8000-000000000000",
         bookingReference: "TKT-TEST",
+        providerReference: "00000000-0000-4000-8000-000000000001",
         amountXaf: 10_000,
         attendeeName: "Test Attendee",
         attendeeEmail: "test@example.com",

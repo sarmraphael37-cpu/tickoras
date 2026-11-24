@@ -48,6 +48,14 @@ export async function POST(
   }
 
   const adapter = getPaymentProvider(provider as PaymentProvider);
+
+  // MTN MoMo callbacks carry no shared-secret signature. Authenticity is
+  // proven by querying the provider's status API server-side and matching
+  // reference + amount against our payment record before finalizing.
+  if (provider === "mtn_momo") {
+    return handleMtnWebhook(request, adapter, provider as PaymentProvider);
+  }
+
   if (!adapter.isConfigured || !env.PAYMENT_WEBHOOK_SECRET) {
     return NextResponse.json(
       {
@@ -116,6 +124,119 @@ export async function POST(
     return NextResponse.json(
       { error: "Server is not configured for privileged operations." },
       { status: 503 },
+    );
+  }
+}
+
+/**
+ * MTN MoMo webhook: record the event, then reconcile against the provider's
+ * authoritative status endpoint. A callback alone never confirms payment.
+ */
+async function handleMtnWebhook(
+  request: NextRequest,
+  adapter: ReturnType<typeof getPaymentProvider>,
+  provider: PaymentProvider,
+) {
+  if (!adapter.isConfigured || !isSupabaseConfigured) {
+    return NextResponse.json(
+      { error: "MTN MoMo is not configured on this deployment." },
+      { status: 503 },
+    );
+  }
+
+  const body = await request.text();
+  let payload: unknown = null;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    payload = { raw: body.slice(0, 2000) };
+  }
+
+  const verification = await adapter.parseWebhook(body, request.headers);
+  const reference = verification.providerReference;
+
+  try {
+    const supabase = createAdminClient();
+
+    // Persist the callback for audit before doing anything else.
+    await supabase.from("payment_webhook_events").insert({
+      provider,
+      external_event_id: reference ?? `momo-${Date.now()}`,
+      payload: payload as never,
+      signature_valid: verification.valid,
+      processed_at: null,
+      processing_error: verification.valid
+        ? null
+        : (verification.reason ?? "Verification failed"),
+    });
+
+    if (!verification.valid || !reference) {
+      return NextResponse.json(
+        { error: verification.reason ?? "Could not verify this callback." },
+        { status: 401 },
+      );
+    }
+
+    const { data: payment } = await supabase
+      .from("payments")
+      .select("id, booking_id, amount_xaf, status")
+      .eq("provider", "mtn_momo")
+      .eq("provider_reference", reference)
+      .maybeSingle();
+
+    if (!payment) {
+      return NextResponse.json(
+        { error: "Unknown payment reference." },
+        { status: 404 },
+      );
+    }
+
+    if (
+      verification.amountXaf !== null &&
+      verification.amountXaf !== payment.amount_xaf
+    ) {
+      console.error(
+        `[tickora] MTN amount mismatch ref=${reference} remote=${verification.amountXaf} expected=${payment.amount_xaf}`,
+      );
+      return NextResponse.json(
+        { error: "Amount mismatch — flagged for review." },
+        { status: 409 },
+      );
+    }
+
+    if (verification.status === "succeeded") {
+      const { error } = await supabase.rpc("process_verified_payment", {
+        p_payment_id: payment.id,
+        p_provider_reference: reference,
+        p_payload: {
+          source: "mtn_momo_webhook",
+          callback: payload as never,
+        },
+      });
+      if (error) {
+        console.error("[tickora] MTN finalize:", error.message);
+        return NextResponse.json(
+          { error: "Verification succeeded but finalization failed." },
+          { status: 500 },
+        );
+      }
+    } else if (verification.status === "failed") {
+      await supabase
+        .from("payments")
+        .update({
+          status: "failed",
+          failure_reason: verification.reason ?? "Provider reported failure.",
+        })
+        .eq("id", payment.id)
+        .in("status", ["pending", "initiated", "requires_action"]);
+    }
+
+    return NextResponse.json({ received: true, status: verification.status });
+  } catch (error) {
+    console.error("[tickora] MTN webhook:", error);
+    return NextResponse.json(
+      { error: "Webhook processing failed." },
+      { status: 500 },
     );
   }
 }
