@@ -4,6 +4,7 @@ import { Compass, SearchX } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { EventCard } from "@/components/events/event-card";
+import { EventMap } from "@/components/maps/map-view";
 import { EventFilters } from "@/components/events/event-filters";
 import { Pagination } from "@/components/ui/pagination";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -41,6 +42,7 @@ export default async function EventsPage({
     date: first(params.date),
     price: first(params.price),
     sort: first(params.sort) ?? "upcoming",
+    view: first(params.view) === "map" ? "map" : "list",
     page: Math.max(1, Number(first(params.page) ?? 1) || 1),
     pageSize: 9,
   };
@@ -61,6 +63,7 @@ export default async function EventsPage({
       ["date", filters.date],
       ["price", filters.price],
       ["sort", filters.sort],
+      ["view", filters.view === "map" ? "map" : undefined],
     ];
     for (const [key, value] of pairs) {
       if (value) next.set(key, value);
@@ -169,11 +172,65 @@ export default async function EventsPage({
 
           {events.length > 0 ? (
             <>
-              <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {events.map((event) => (
-                  <EventCard key={event.id} event={event} />
-                ))}
+              <div className="mt-4 flex items-center gap-2">
+                <Link
+                  href={buildHref(1)}
+                  className={cn(
+                    "rounded-full border px-3.5 py-1.5 text-[11px] font-medium transition",
+                    filters.view !== "map"
+                      ? "border-forest bg-forest text-white"
+                      : "border-line bg-card text-muted hover:text-ink",
+                  )}
+                >
+                  List
+                </Link>
+                <Link
+                  href={buildHref(1).includes("?")
+                    ? `${buildHref(1)}&view=map`
+                    : `${buildHref(1)}?view=map`}
+                  className={cn(
+                    "rounded-full border px-3.5 py-1.5 text-[11px] font-medium transition",
+                    filters.view === "map"
+                      ? "border-forest bg-forest text-white"
+                      : "border-line bg-card text-muted hover:text-ink",
+                  )}
+                >
+                  Map
+                </Link>
               </div>
+
+              {filters.view === "map" ? (
+                <div className="mt-4">
+                  {(() => {
+                    const points = events
+                      .filter((e) => e.latitude != null && e.longitude != null)
+                      .map((e) => ({
+                        id: e.id,
+                        lat: e.latitude as number,
+                        lng: e.longitude as number,
+                        title: e.title,
+                        subtitle: `${e.venueName} · ${e.city}`,
+                        href: `/events/${e.slug}`,
+                      }));
+                    return points.length > 0 ? (
+                      <EventMap points={points} height={440} zoom={6} />
+                    ) : (
+                      <Alert tone="info">
+                        No events on this page have a map pin yet. Organizers can
+                        add venue coordinates when creating or editing events.
+                      </Alert>
+                    );
+                  })()}
+                </div>
+              ) : null}
+
+              {filters.view !== "map" ? (
+                <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {events.map((event) => (
+                    <EventCard key={event.id} event={event} />
+                  ))}
+                </div>
+              ) : null}
               <Pagination page={filters.page ?? 1} totalPages={totalPages} buildHref={buildHref} />
             </>
           ) : (

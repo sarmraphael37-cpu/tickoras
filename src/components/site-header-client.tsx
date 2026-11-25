@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Search,
+  Store,
   Ticket,
   X,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import type { Viewer } from "@/lib/domain";
 const NAV = [
   { href: "/", label: "Home", icon: Home, exact: true },
   { href: "/events", label: "Discover Events", icon: Search },
+  { href: "/services", label: "Services", icon: Store },
   { href: "/categories", label: "Categories", icon: CalendarRange },
   { href: "/how-it-works", label: "How It Works", icon: Ticket },
   { href: "/about", label: "About Us", icon: Home },

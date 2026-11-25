@@ -6,6 +6,7 @@ import type {
   PaymentStatus,
   PayoutStatus,
   RefundStatus,
+  ServiceBookingStatus,
   TicketStatus,
 } from "@/types/database";
 
@@ -68,6 +69,18 @@ const PAYOUT: Record<PayoutStatus, { label: string; tone: Tone }> = {
   rejected: { label: "Rejected", tone: "danger" },
 };
 
+const SERVICE_BOOKING: Record<ServiceBookingStatus, { label: string; tone: Tone }> = {
+  pending: { label: "Pending", tone: "warning" },
+  quotation_submitted: { label: "Quotation sent", tone: "info" },
+  accepted: { label: "Accepted", tone: "info" },
+  payment_pending: { label: "Payment pending", tone: "warning" },
+  confirmed: { label: "Confirmed", tone: "brand" },
+  in_progress: { label: "In progress", tone: "info" },
+  completed: { label: "Completed", tone: "success" },
+  cancelled: { label: "Cancelled", tone: "neutral" },
+  disputed: { label: "Disputed", tone: "danger" },
+};
+
 type Props =
   | { kind: "event"; status: EventStatus }
   | { kind: "booking"; status: BookingStatus }
@@ -75,7 +88,8 @@ type Props =
   | { kind: "ticket"; status: TicketStatus }
   | { kind: "organizer"; status: OrganizerStatus }
   | { kind: "refund"; status: RefundStatus }
-  | { kind: "payout"; status: PayoutStatus };
+  | { kind: "payout"; status: PayoutStatus }
+  | { kind: "service_booking"; status: ServiceBookingStatus };
 
 export function StatusBadge(props: Props) {
   let entry: { label: string; tone: Tone };
@@ -100,6 +114,9 @@ export function StatusBadge(props: Props) {
       break;
     case "payout":
       entry = PAYOUT[props.status];
+      break;
+    case "service_booking":
+      entry = SERVICE_BOOKING[props.status];
       break;
   }
 

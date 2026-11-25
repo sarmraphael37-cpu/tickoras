@@ -68,6 +68,8 @@ export default async function EditEventPage({
           venueName: detail.event.venue_name,
           address: detail.event.address ?? "",
           city: detail.event.city,
+          latitude: detail.event.latitude,
+          longitude: detail.event.longitude,
           startAt: detail.event.start_at,
           endAt: detail.event.end_at,
           coverImageUrl: detail.event.cover_image_url ?? "",

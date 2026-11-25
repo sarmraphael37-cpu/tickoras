@@ -30,6 +30,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Store,
   Ticket,
   TrendingUp,
   User,
@@ -43,7 +44,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
-type Variant = "attendee" | "organizer" | "admin";
+type Variant = "attendee" | "organizer" | "admin" | "provider";
 
 interface NavItem {
   href: string;
@@ -104,6 +105,7 @@ const NAV: Record<Variant, NavGroup[]> = {
         { href: "/organizer/revenue", label: "Revenue", icon: TrendingUp },
         { href: "/organizer/payouts", label: "Payouts", icon: Wallet },
         { href: "/organizer/scanners", label: "Scanner Management", icon: ShieldCheck },
+        { href: "/organizer/services", label: "Service Marketplace", icon: Store },
       ],
     },
     {
@@ -112,6 +114,23 @@ const NAV: Record<Variant, NavGroup[]> = {
         { href: "/organizer/notifications", label: "Notifications", icon: Bell },
         { href: "/organizer/profile", label: "Organization Profile", icon: User },
         { href: "/organizer/settings", label: "Settings", icon: Settings },
+      ],
+    },
+  ],
+  provider: [
+    {
+      label: "Workspace",
+      items: [
+        { href: "/provider", label: "Overview", icon: Home, exact: true },
+        { href: "/provider/bookings", label: "Booking Requests", icon: ClipboardCheck },
+        { href: "/provider/profile", label: "Profile & Portfolio", icon: User },
+      ],
+    },
+    {
+      label: "Marketplace",
+      items: [
+        { href: "/services", label: "Browse Marketplace", icon: Search },
+        { href: "/events", label: "Discover Events", icon: CalendarRange },
       ],
     },
   ],
@@ -155,18 +174,21 @@ const NOTIFICATION_PATH: Record<Variant, string> = {
   attendee: "/attendee/notifications",
   organizer: "/organizer/notifications",
   admin: "/admin",
+  provider: "/provider",
 };
 
 const PROFILE_PATH: Record<Variant, string> = {
   attendee: "/attendee/profile",
   organizer: "/organizer/profile",
   admin: "/admin",
+  provider: "/provider/profile",
 };
 
 const SETTINGS_PATH: Record<Variant, string> = {
   attendee: "/attendee/settings",
   organizer: "/organizer/settings",
   admin: "/admin/settings",
+  provider: "/provider/profile",
 };
 
 interface RecentNotification {
@@ -272,7 +294,9 @@ export function DashboardShell({
       ? "Administrator"
       : variant === "organizer"
         ? "Organizer"
-        : "Attendee";
+        : variant === "provider"
+          ? "Service Provider"
+          : "Attendee";
 
   return (
     <div className="min-h-screen bg-surface">

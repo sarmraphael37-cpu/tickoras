@@ -97,11 +97,15 @@ export interface EventSummary {
   capacity: number;
   /** IANA timezone for the event; falls back to Africa/Douala in the UI. */
   timezone?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface EventDetail extends EventSummary {
   description: string;
   address: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   bannerImageUrl: string | null;
   viewsCount: number;
   organizerId: string;

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { saveEvent } from "@/app/actions/organizer";
 import { ImageUpload } from "@/components/dashboard/image-upload";
+import { LocationPicker } from "@/components/maps/location-picker";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,8 @@ interface EventDefaults {
   venueName: string;
   address: string;
   city: string;
+  latitude?: number | null;
+  longitude?: number | null;
   startAt: string;
   endAt: string;
   coverImageUrl: string;
@@ -482,6 +485,20 @@ export function EventForm({
               </Select>
               <FieldError>{firstError("event.city")}</FieldError>
             </div>
+          </div>
+
+          <div className="mt-5">
+            <Label>Venue location on map (optional)</Label>
+            <p className="mb-2 mt-0.5 text-[11px] text-muted">
+              Drop a pin so attendees can find the venue. You can also search an
+              address — powered by OpenStreetMap.
+            </p>
+            <LocationPicker
+              initialLat={defaults?.latitude}
+              initialLng={defaults?.longitude}
+              initialAddress={defaults?.address}
+              includeAddressInput={false}
+            />
           </div>
         </section>
 

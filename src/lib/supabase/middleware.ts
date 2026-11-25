@@ -6,6 +6,10 @@ const PROTECTED: Array<{ prefix: string; roles: string[] }> = [
   { prefix: "/organizer", roles: ["organizer"] },
   { prefix: "/attendee", roles: ["attendee", "organizer", "admin"] },
   { prefix: "/scanner", roles: ["scanner", "organizer", "admin"] },
+  {
+    prefix: "/provider",
+    roles: ["attendee", "organizer", "admin", "service_provider"],
+  },
 ];
 
 const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"];

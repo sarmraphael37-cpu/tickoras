@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LoginForm } from "@/components/auth/login-form";
+import { ResendConfirmation } from "@/components/auth/resend-confirmation";
 import { Alert } from "@/components/ui/alert";
 import { isSupabaseConfigured } from "@/lib/env";
 import { safeRedirect } from "@/lib/utils";
@@ -43,6 +44,10 @@ export default async function LoginPage({
 
       <div className="mt-7">
         <LoginForm next={next ? safeRedirect(next, "") : undefined} />
+      </div>
+
+      <div className="mt-4">
+        <ResendConfirmation />
       </div>
 
       <p className="mt-6 text-center text-[11px] text-muted">

@@ -26,12 +26,14 @@ export interface EventFilters {
   date?: string;
   price?: string;
   sort?: string;
+  view?: "list" | "map";
   page?: number;
   pageSize?: number;
 }
 
 const EVENT_SELECT = `
   id, slug, title, short_description, cover_image_url, city, venue_name,
+  address, latitude, longitude,
   start_at, end_at, timezone, status, is_featured, views_count, organizer_id,
   category:categories(name, slug, color),
   organizer:organizers(name, slug, logo_url, status),
@@ -68,6 +70,8 @@ function mapEventSummary(row: any): EventSummary {
     categoryColor: category?.color ?? null,
     city: row.city,
     venueName: row.venue_name,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
     startAt: row.start_at,
     endAt: row.end_at,
     timezone: row.timezone ?? null,

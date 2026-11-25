@@ -48,6 +48,14 @@ const eventSchema = z.object({
   venueName: z.string().trim().min(2, "Add a venue.").max(200),
   address: z.string().trim().max(300).optional().default(""),
   city: z.enum(CITIES, { message: "Choose a supported city." }),
+  latitude: z
+    .union([z.literal(""), z.coerce.number().min(-90).max(90)])
+    .optional()
+    .default(""),
+  longitude: z
+    .union([z.literal(""), z.coerce.number().min(-180).max(180)])
+    .optional()
+    .default(""),
   startAt: z.string().min(1, "Choose a start date and time."),
   endAt: z.string().min(1, "Choose an end date and time."),
   coverImageUrl: optionalUrl,
@@ -116,6 +124,8 @@ export async function saveEvent(
       venueName: formData.get("venue_name"),
       address: formData.get("address") ?? "",
       city: formData.get("city"),
+      latitude: formData.get("latitude") ?? "",
+      longitude: formData.get("longitude") ?? "",
       startAt: formData.get("start_at") ?? "",
       endAt: formData.get("end_at") ?? "",
       coverImageUrl: formData.get("cover_image_url") ?? "",
@@ -211,6 +221,24 @@ export async function saveEvent(
   }
 
   if (!eventId) return actionError("The event was saved but no reference was returned.");
+
+  // Persist map coordinates separately — set_event_location enforces ownership
+  // and validates ranges server-side.
+  const hasLat = event.latitude !== "";
+  const hasLng = event.longitude !== "";
+  if (hasLat !== hasLng) {
+    return actionError("Map coordinates are incomplete. Drop a pin or clear both.");
+  }
+  if (hasLat && hasLng) {
+    const { error: locError } = await supabase.rpc("set_event_location", {
+      p_event_id: eventId,
+      p_latitude: Number(event.latitude),
+      p_longitude: Number(event.longitude),
+    });
+    if (locError) {
+      console.error("[tickora] set_event_location:", locError.message);
+    }
+  }
 
   revalidatePath("/organizer");
   revalidatePath("/organizer/events");

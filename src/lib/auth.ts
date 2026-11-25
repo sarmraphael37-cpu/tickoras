@@ -72,6 +72,10 @@ export function dashboardPathFor(viewer: Viewer): string {
       return "/admin";
     case "organizer":
       return "/organizer";
+    case "service_provider":
+      return viewer.roles.includes("organizer")
+        ? "/organizer"
+        : "/provider";
     case "scanner":
       return viewer.roles.includes("attendee") ? "/attendee" : "/scanner";
     default:

@@ -71,6 +71,13 @@ export async function signIn(
   });
 
   if (error || !data.user) {
+    const code = (error as { code?: string } | null)?.code ?? "";
+    const message = error?.message?.toLowerCase() ?? "";
+    if (code === "email_not_confirmed" || message.includes("not confirmed")) {
+      return actionError(
+        "Your email is not confirmed yet. Open the confirmation link we sent you, or resend it below.",
+      );
+    }
     return actionError("Those credentials do not match an active account.");
   }
 
@@ -190,6 +197,38 @@ export async function signUp(
     isOrganizer
       ? "Account created. Check your email to verify it, then complete your organizer profile. Approval is required before publishing."
       : "Account created. Check your email to verify your address before signing in.",
+  );
+}
+
+export async function resendConfirmation(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  if (!isSupabaseConfigured) {
+    return actionError("Supabase is not configured.");
+  }
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!z.string().email().safeParse(email).success) {
+    return actionError("Enter a valid email address.");
+  }
+  const limited = rateLimit(`resend:${email}`, 3, 30 * 60_000);
+  if (!limited.allowed) {
+    return actionError("Too many requests. Try again later.");
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo: `${siteUrl}/auth/callback` },
+  });
+  if (error) {
+    console.error("[tickora] resend confirmation:", error.message);
+    return actionError(
+      "Could not resend the email. If this address has no pending signup, sign in instead.",
+    );
+  }
+  return actionSuccess(
+    "If that address has a pending signup, a new confirmation link is on its way.",
   );
 }
 

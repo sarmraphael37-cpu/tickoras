@@ -18,6 +18,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { TicketSelector } from "@/components/events/ticket-selector";
 import { ShareButton } from "@/components/events/share-button";
 import { EventCard } from "@/components/events/event-card";
+import { EventMap, directionsUrl } from "@/components/maps/map-view";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
@@ -323,28 +324,59 @@ export default async function EventDetailPage({
               </div>
             </div>
 
-            {event.address ? (
-              <div className="mt-6 flex flex-col justify-between gap-3 rounded-xl border border-line bg-surface p-5 sm:flex-row sm:items-center">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-card text-accent-300">
-                    <MapPin className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <p className="text-[12px] font-semibold text-ink">{event.venueName}</p>
-                    <p className="mt-0.5 text-[11px] text-muted">{event.address}</p>
+            {(event.address || event.latitude != null) ? (
+              <div className="mt-6 space-y-3">
+                <div className="flex flex-col justify-between gap-3 rounded-xl border border-line bg-surface p-5 sm:flex-row sm:items-center">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-card text-accent-300">
+                      <MapPin className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-[12px] font-semibold text-ink">{event.venueName}</p>
+                      <p className="mt-0.5 text-[11px] text-muted">
+                        {event.address ?? `${event.city}, Cameroon`}
+                      </p>
+                    </div>
                   </div>
+                  {event.latitude != null && event.longitude != null ? (
+                    <a
+                      href={directionsUrl(event.latitude, event.longitude)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-accent-300 hover:underline"
+                    >
+                      Get directions
+                      <ArrowUpRight className="h-3 w-3" />
+                    </a>
+                  ) : (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        `${event.venueName} ${event.address ?? ""} ${event.city} Cameroon`,
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-accent-300 hover:underline"
+                    >
+                      Open in Maps
+                      <ArrowUpRight className="h-3 w-3" />
+                    </a>
+                  )}
                 </div>
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                    `${event.venueName} ${event.address} ${event.city} Cameroon`,
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-accent-300 hover:underline"
-                >
-                  Open in Maps
-                  <ArrowUpRight className="h-3 w-3" />
-                </a>
+                {event.latitude != null && event.longitude != null ? (
+                  <EventMap
+                    points={[
+                      {
+                        id: event.id,
+                        lat: event.latitude,
+                        lng: event.longitude,
+                        title: event.venueName,
+                        subtitle: `${event.city}, Cameroon`,
+                      },
+                    ]}
+                    height={280}
+                    zoom={15}
+                  />
+                ) : null}
               </div>
             ) : null}
 

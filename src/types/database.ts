@@ -15,7 +15,12 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type AppRole = "attendee" | "organizer" | "admin" | "scanner";
+export type AppRole =
+  | "attendee"
+  | "organizer"
+  | "admin"
+  | "scanner"
+  | "service_provider";
 export type OrganizerStatus = "pending" | "approved" | "rejected" | "suspended";
 export type EventStatus =
   | "draft"
@@ -48,6 +53,16 @@ export type PayoutStatus =
   | "processing"
   | "paid"
   | "rejected";
+export type ServiceBookingStatus =
+  | "pending"
+  | "quotation_submitted"
+  | "accepted"
+  | "payment_pending"
+  | "confirmed"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
+  | "disputed";
 
 export interface ProfileRow {
   id: string;
@@ -108,6 +123,8 @@ export interface EventRow {
   venue_name: string;
   address: string | null;
   city: string;
+  latitude: number | null;
+  longitude: number | null;
   start_at: string;
   end_at: string;
   timezone: string;
@@ -329,6 +346,75 @@ export interface ContactMessageRow {
  * Interfaces do not get an implicit index signature, so we normalise every
  * row shape through a mapped type before handing it to the client.
  */
+export interface ServiceCategoryRow {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  icon: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+export interface ServiceProviderRow {
+  id: string;
+  user_id: string;
+  business_name: string;
+  slug: string;
+  description: string | null;
+  city: string | null;
+  coverage_areas: string[];
+  phone: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  logo_url: string | null;
+  starting_price_xaf: number | null;
+  years_experience: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  is_verified: boolean;
+  is_active: boolean;
+  rating_avg: number;
+  rating_count: number;
+  created_at: string;
+  updated_at: string;
+}
+export interface ProviderPortfolioRow {
+  id: string;
+  provider_id: string;
+  image_url: string;
+  title: string | null;
+  sort_order: number;
+  created_at: string;
+}
+export interface ServiceBookingRow {
+  id: string;
+  reference: string;
+  organizer_id: string;
+  provider_id: string;
+  event_id: string | null;
+  title: string;
+  details: string | null;
+  event_date: string | null;
+  budget_xaf: number | null;
+  status: ServiceBookingStatus;
+  quoted_amount_xaf: number | null;
+  quote_note: string | null;
+  platform_commission_xaf: number;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+export interface ServiceReviewRow {
+  id: string;
+  booking_id: string;
+  provider_id: string;
+  author_id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+}
+
 type Shape<T> = { [K in keyof T]: T[K] };
 
 type Table<R, I = Partial<R>, U = Partial<R>> = {
@@ -387,6 +473,15 @@ export type Database = {
       platform_settings: Table<PlatformSettingRow>;
       newsletter_subscribers: Table<NewsletterRow>;
       contact_messages: Table<ContactMessageRow>;
+      service_categories: Table<ServiceCategoryRow>;
+      service_providers: Table<ServiceProviderRow>;
+      service_provider_categories: Table<{
+        provider_id: string;
+        category_id: string;
+      }>;
+      provider_portfolios: Table<ProviderPortfolioRow>;
+      service_bookings: Table<ServiceBookingRow>;
+      service_reviews: Table<ServiceReviewRow>;
     };
     Views: {
       event_sales_summary: { Row: Shape<EventSalesSummaryRow>; Relationships: [] };
@@ -525,6 +620,38 @@ export type Database = {
         };
         Returns: string;
       };
+      create_service_provider_profile: {
+        Args: {
+          p_business_name: string;
+          p_slug: string;
+          p_description?: string | null;
+          p_city?: string | null;
+          p_phone?: string | null;
+          p_category_ids?: string[];
+        };
+        Returns: Json;
+      };
+      service_booking_notify: {
+        Args: {
+          p_booking_id: string;
+          p_audience: string;
+          p_title: string;
+          p_body: string;
+        };
+        Returns: undefined;
+      };
+      refresh_provider_rating: {
+        Args: { p_provider_id: string };
+        Returns: undefined;
+      };
+      set_event_location: {
+        Args: {
+          p_event_id: string;
+          p_latitude: number | null;
+          p_longitude: number | null;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       app_role: AppRole;
@@ -536,6 +663,7 @@ export type Database = {
       ticket_status: TicketStatus;
       refund_status: RefundStatus;
       payout_status: PayoutStatus;
+      service_booking_status: ServiceBookingStatus;
     };
     CompositeTypes: Record<string, never>;
   };
