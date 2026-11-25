@@ -32,6 +32,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Sparkles,
   Store,
   Wallet,
   Ticket,
@@ -111,6 +112,7 @@ const NAV: Record<Variant, NavGroup[]> = {
         { href: "/organizer/services", label: "Service Marketplace", icon: Store },
         { href: "/organizer/finance", label: "Finances", icon: Wallet },
         { href: "/organizer/marketing", label: "Marketing", icon: Megaphone },
+        { href: "/organizer/assistant", label: "AI Assistant", icon: Sparkles },
       ],
     },
     {
