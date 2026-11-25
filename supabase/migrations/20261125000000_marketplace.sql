@@ -143,10 +143,22 @@ begin
 end;
 $$;
 
+create or replace function public.service_review_rating_trigger()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.refresh_provider_rating(new.provider_id);
+  return new;
+end;
+$$;
+
 drop trigger if exists refresh_provider_rating_trg on public.service_reviews;
 create trigger refresh_provider_rating_trg
   after insert on public.service_reviews
-  for each row execute function public.refresh_provider_rating(new.provider_id);
+  for each row execute function public.service_review_rating_trigger();
 
 -- Booking reference generator ----------------------------------------------
 create or replace function public.service_booking_reference()
