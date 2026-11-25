@@ -42,6 +42,18 @@ const EVENT_SELECT = `
     sales_end_at, is_active, sort_order)
 `;
 
+/** Same select without the coordinate columns — used until the location
+ *  migration has been applied to the database. */
+const EVENT_SELECT_LEGACY = EVENT_SELECT.replace("address, latitude, longitude,\n  ", "address,\n  ");
+
+function isMissingColumnError(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  return (
+    error.code === "42703" ||
+    /column .* does not exist/i.test(error.message ?? "")
+  );
+}
+
 function asObject<T>(value: T | T[] | null): T | null {
   if (Array.isArray(value)) return value[0] ?? null;
   return value;
@@ -211,53 +223,60 @@ async function queryEvents(
     categoryId = (category as any)?.id ?? null;
   }
 
-  let builder = supabase
-    .from("events")
-    .select(EVENT_SELECT, { count: "exact" })
-    .eq("status", "published")
-    .gte("start_at", new Date(Date.now() - 6 * 3600_000).toISOString());
+  const runQuery = (select: string) => {
+    let builder = supabase
+      .from("events")
+      .select(select, { count: "exact" })
+      .eq("status", "published")
+      .gte("start_at", new Date(Date.now() - 6 * 3600_000).toISOString());
 
-  if (query) {
-    const safe = query.replace(/[,%()]/g, " ").trim();
-    const ors = [`title.ilike.%${safe}%`, `short_description.ilike.%${safe}%`];
-    if (organizerIds.length) ors.push(`organizer_id.in.(${organizerIds.join(",")})`);
-    builder = builder.or(ors.join(","));
-  }
-  if (categoryId) builder = builder.eq("category_id", categoryId);
-  if (filters.city) builder = builder.eq("city", filters.city);
-  if (filters.price) {
-    builder = builder.eq("ticket_types.is_active", true);
-    if (filters.price === "free") builder = builder.eq("ticket_types.price_xaf", 0);
-    if (filters.price === "under5000")
-      builder = builder.lt("ticket_types.price_xaf", 5000);
-    if (filters.price === "5000-15000") {
-      builder = builder
-        .gte("ticket_types.price_xaf", 5000)
-        .lte("ticket_types.price_xaf", 15000);
+    if (query) {
+      const safe = query.replace(/[,%()]/g, " ").trim();
+      const ors = [`title.ilike.%${safe}%`, `short_description.ilike.%${safe}%`];
+      if (organizerIds.length) ors.push(`organizer_id.in.(${organizerIds.join(",")})`);
+      builder = builder.or(ors.join(","));
     }
-    if (filters.price === "over15000")
-      builder = builder.gt("ticket_types.price_xaf", 15000);
-  }
-  if (filters.date === "week") {
-    const end = new Date();
-    end.setDate(end.getDate() + 7);
-    builder = builder.lte("start_at", end.toISOString());
-  }
-  if (filters.date === "month") {
-    const end = new Date();
-    end.setDate(end.getDate() + 30);
-    builder = builder.lte("start_at", end.toISOString());
-  }
+    if (categoryId) builder = builder.eq("category_id", categoryId);
+    if (filters.city) builder = builder.eq("city", filters.city);
+    if (filters.price) {
+      builder = builder.eq("ticket_types.is_active", true);
+      if (filters.price === "free") builder = builder.eq("ticket_types.price_xaf", 0);
+      if (filters.price === "under5000")
+        builder = builder.lt("ticket_types.price_xaf", 5000);
+      if (filters.price === "5000-15000") {
+        builder = builder
+          .gte("ticket_types.price_xaf", 5000)
+          .lte("ticket_types.price_xaf", 15000);
+      }
+      if (filters.price === "over15000")
+        builder = builder.gt("ticket_types.price_xaf", 15000);
+    }
+    if (filters.date === "week") {
+      const end = new Date();
+      end.setDate(end.getDate() + 7);
+      builder = builder.lte("start_at", end.toISOString());
+    }
+    if (filters.date === "month") {
+      const end = new Date();
+      end.setDate(end.getDate() + 30);
+      builder = builder.lte("start_at", end.toISOString());
+    }
 
-  if (filters.sort === "newest") {
-    builder = builder.order("created_at", { ascending: false });
-  } else if (filters.sort === "popular") {
-    builder = builder.order("views_count", { ascending: false });
-  } else {
-    builder = builder.order("start_at", { ascending: true });
-  }
+    if (filters.sort === "newest") {
+      builder = builder.order("created_at", { ascending: false });
+    } else if (filters.sort === "popular") {
+      builder = builder.order("views_count", { ascending: false });
+    } else {
+      builder = builder.order("start_at", { ascending: true });
+    }
 
-  const { data, error } = await builder.range(from, to);
+    return builder.range(from, to);
+  };
+
+  let { data, error } = await runQuery(EVENT_SELECT);
+  if (isMissingColumnError(error)) {
+    ({ data, error } = await runQuery(EVENT_SELECT_LEGACY));
+  }
   if (error) {
     console.error("[tickora] event query failed:", error.message);
     return { events: [], error: error.message };
@@ -321,14 +340,19 @@ export async function getFeaturedEvents(limit = 4): Promise<EventSummary[]> {
     return demoEventSummaries.filter((e) => e.isFeatured).slice(0, limit);
   }
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("events")
-    .select(EVENT_SELECT)
-    .eq("status", "published")
-    .eq("is_featured", true)
-    .gte("start_at", new Date().toISOString())
-    .order("start_at", { ascending: true })
-    .limit(limit);
+  const run = (select: string) =>
+    supabase
+      .from("events")
+      .select(select)
+      .eq("status", "published")
+      .eq("is_featured", true)
+      .gte("start_at", new Date().toISOString())
+      .order("start_at", { ascending: true })
+      .limit(limit);
+  let { data, error } = await run(EVENT_SELECT);
+  if (isMissingColumnError(error)) {
+    ({ data, error } = await run(EVENT_SELECT_LEGACY));
+  }
   if (error) {
     console.error("[tickora] featured query failed:", error.message);
     return [];
@@ -343,13 +367,18 @@ export async function getTrendingEvents(limit = 5): Promise<EventSummary[]> {
       .slice(0, limit);
   }
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("events")
-    .select(EVENT_SELECT)
-    .eq("status", "published")
-    .gte("start_at", new Date().toISOString())
-    .order("views_count", { ascending: false })
-    .limit(limit);
+  const run = (select: string) =>
+    supabase
+      .from("events")
+      .select(select)
+      .eq("status", "published")
+      .gte("start_at", new Date().toISOString())
+      .order("views_count", { ascending: false })
+      .limit(limit);
+  let { data, error } = await run(EVENT_SELECT);
+  if (isMissingColumnError(error)) {
+    ({ data, error } = await run(EVENT_SELECT_LEGACY));
+  }
   if (error) return [];
   return (data ?? []).map(mapEventSummary);
 }
@@ -364,13 +393,18 @@ export async function getUpcomingEvents(limit = 6): Promise<EventSummary[]> {
       .slice(0, limit);
   }
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("events")
-    .select(EVENT_SELECT)
-    .eq("status", "published")
-    .gte("start_at", new Date().toISOString())
-    .order("start_at", { ascending: true })
-    .limit(limit);
+  const run = (select: string) =>
+    supabase
+      .from("events")
+      .select(select)
+      .eq("status", "published")
+      .gte("start_at", new Date().toISOString())
+      .order("start_at", { ascending: true })
+      .limit(limit);
+  let { data, error } = await run(EVENT_SELECT);
+  if (isMissingColumnError(error)) {
+    ({ data, error } = await run(EVENT_SELECT_LEGACY));
+  }
   if (error) return [];
   return (data ?? []).map(mapEventSummary);
 }
@@ -386,15 +420,20 @@ export async function getEventBySlug(
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("events")
-    .select(
-      `${EVENT_SELECT}, description, banner_image_url, address, organizer_id,
-       organizer:organizers(name, slug, logo_url, description, status)`,
-    )
-    .eq("slug", slug)
-    .eq("status", "published")
-    .maybeSingle();
+  const run = (select: string) =>
+    supabase
+      .from("events")
+      .select(
+        `${select}, description, banner_image_url, address, organizer_id,
+         organizer:organizers(name, slug, logo_url, description, status)`,
+      )
+      .eq("slug", slug)
+      .eq("status", "published")
+      .maybeSingle();
+  let { data, error } = await run(EVENT_SELECT);
+  if (isMissingColumnError(error)) {
+    ({ data, error } = await run(EVENT_SELECT_LEGACY));
+  }
 
   if (error || !data) {
     if (error) console.error("[tickora] event detail failed:", error.message);
@@ -520,13 +559,19 @@ export async function getOrganizerBySlug(slug: string): Promise<{
     .maybeSingle();
   if (error || !data) return { organizer: null, events: [] };
 
-  const { data: events } = await supabase
-    .from("events")
-    .select(EVENT_SELECT)
-    .eq("organizer_id", (data as any).id)
-    .eq("status", "published")
-    .gte("start_at", new Date().toISOString())
-    .order("start_at");
+  const runEvents = (select: string) =>
+    supabase
+      .from("events")
+      .select(select)
+      .eq("organizer_id", (data as any).id)
+      .eq("status", "published")
+      .gte("start_at", new Date().toISOString())
+      .order("start_at");
+  let { data: events, error: eventsError } = await runEvents(EVENT_SELECT);
+  if (isMissingColumnError(eventsError)) {
+    ({ data: events, error: eventsError } = await runEvents(EVENT_SELECT_LEGACY));
+  }
+  if (eventsError) console.error("[tickora] organizer events:", eventsError.message);
 
   return {
     organizer: {
@@ -603,22 +648,29 @@ export async function getRelatedEvents(
       .slice(0, limit);
   }
   const supabase = await createClient();
-  let builder = supabase
-    .from("events")
-    .select(EVENT_SELECT)
-    .eq("status", "published")
-    .neq("id", eventId)
-    .gte("start_at", new Date().toISOString())
-    .order("start_at")
-    .limit(limit);
-  if (categorySlug) {
-    const { data: category } = await supabase
-      .from("categories")
-      .select("id")
-      .eq("slug", categorySlug)
-      .maybeSingle();
-    if (category) builder = builder.eq("category_id", (category as any).id);
+  const buildQuery = async (select: string) => {
+    let builder = supabase
+      .from("events")
+      .select(select)
+      .eq("status", "published")
+      .neq("id", eventId)
+      .gte("start_at", new Date().toISOString())
+      .order("start_at")
+      .limit(limit);
+    if (categorySlug) {
+      const { data: category } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("slug", categorySlug)
+        .maybeSingle();
+      if (category) builder = builder.eq("category_id", (category as any).id);
+    }
+    return builder;
+  };
+  let { data, error } = await buildQuery(EVENT_SELECT);
+  if (isMissingColumnError(error)) {
+    ({ data, error } = await buildQuery(EVENT_SELECT_LEGACY));
   }
-  const { data } = await builder;
+  if (error) return [];
   return (data ?? []).map(mapEventSummary);
 }
