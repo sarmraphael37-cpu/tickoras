@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   CreditCard,
+  BadgeCheck,
   Gift,
   ExternalLink,
   FileText,
@@ -31,6 +32,7 @@ import {
   ScanLine,
   Search,
   Settings,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
   Store,
@@ -71,6 +73,7 @@ const NAV: Record<Variant, NavGroup[]> = {
         { href: "/attendee/tickets", label: "My Tickets", icon: Ticket },
         { href: "/attendee/payments", label: "Payments", icon: CreditCard },
         { href: "/attendee/referrals", label: "Referrals", icon: Gift },
+        { href: "/attendee/complaints", label: "Complaints", icon: Flag },
       ],
     },
     {
@@ -113,6 +116,7 @@ const NAV: Record<Variant, NavGroup[]> = {
         { href: "/organizer/finance", label: "Finances", icon: Wallet },
         { href: "/organizer/marketing", label: "Marketing", icon: Megaphone },
         { href: "/organizer/assistant", label: "AI Assistant", icon: Sparkles },
+        { href: "/organizer/verification", label: "Verification", icon: BadgeCheck },
       ],
     },
     {
@@ -162,6 +166,7 @@ const NAV: Record<Variant, NavGroup[]> = {
         { href: "/admin/tickets", label: "Tickets", icon: QrCode },
         { href: "/admin/check-ins", label: "Check-ins", icon: ScanLine },
         { href: "/admin/payouts", label: "Payouts", icon: Wallet },
+        { href: "/admin/trust", label: "Trust & Safety", icon: ShieldAlert },
       ],
     },
     {

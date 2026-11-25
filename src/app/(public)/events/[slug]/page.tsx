@@ -20,6 +20,7 @@ import { ShareButton } from "@/components/events/share-button";
 import { EventCard } from "@/components/events/event-card";
 import { EventMap, directionsUrl } from "@/components/maps/map-view";
 import { ReferralShareWidget } from "@/components/marketing/marketing-forms";
+import { EventReviewsSection } from "@/components/trust/event-reviews";
 import { getViewer } from "@/lib/auth";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -516,6 +517,10 @@ export default async function EventDetailPage({
               </div>
             </div>
           </section>
+        ) : null}
+
+        {source !== "demo" ? (
+          <EventReviewsSection eventId={event.id} viewerId={viewer?.id ?? null} />
         ) : null}
       </main>
       <SiteFooter />

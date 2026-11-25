@@ -100,8 +100,71 @@ export interface OrganizerRow {
   referral_reward_value: number;
   affiliate_commission_type: "percent" | "fixed";
   affiliate_commission_value: number;
+  is_verified?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export type VerificationStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "info_requested"
+  | "suspended";
+
+export interface VerificationRequestRow {
+  id: string;
+  subject_type: "organizer" | "service_provider";
+  subject_id: string;
+  user_id: string;
+  documents: Array<{ label: string; url: string }>;
+  notes: string | null;
+  status: VerificationStatus;
+  admin_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PublicReviewStatus = "published" | "pending" | "reported" | "rejected";
+
+export interface PublicReviewRow {
+  id: string;
+  target_type: "event" | "organizer";
+  target_id: string;
+  user_id: string;
+  booking_id: string | null;
+  rating: number;
+  comment: string | null;
+  status: PublicReviewStatus;
+  created_at: string;
+  updated_at: string;
+  reviewer?: { full_name?: string | null } | null;
+  avg_rating?: number;
+  review_count?: number;
+}
+
+export type ComplaintStatus = "open" | "investigating" | "resolved" | "rejected";
+
+export interface ComplaintRow {
+  id: string;
+  reference: string;
+  user_id: string;
+  organizer_id: string | null;
+  event_id: string | null;
+  service_booking_id: string | null;
+  subject: string;
+  description: string;
+  evidence: Array<{ label: string; url: string }>;
+  status: ComplaintStatus;
+  priority: "low" | "normal" | "high";
+  admin_note: string | null;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+  event_title?: string | null;
 }
 export interface CategoryRow {
   id: string;
@@ -590,6 +653,9 @@ export type Database = {
       referral_rewards: Table<ReferralRewardRow>;
       affiliate_commissions: Table<AffiliateCommissionRow>;
       promo_redemptions: Table<PromoRedemptionRow>;
+      verification_requests: Table<VerificationRequestRow>;
+      public_reviews: Table<PublicReviewRow>;
+      complaints: Table<ComplaintRow>;
     };
     Views: {
       event_sales_summary: { Row: Shape<EventSalesSummaryRow>; Relationships: [] };
@@ -779,6 +845,37 @@ export type Database = {
       };
       set_affiliate_status: {
         Args: { p_affiliate_id: string; p_status: string };
+        Returns: undefined;
+      };
+      review_verification: {
+        Args: { p_request_id: string; p_status: string; p_note?: string | null };
+        Returns: undefined;
+      };
+      submit_public_review: {
+        Args: {
+          p_target_type: string;
+          p_target_id: string;
+          p_rating: number;
+          p_comment?: string | null;
+          p_booking_id?: string | null;
+        };
+        Returns: string;
+      };
+      report_review: {
+        Args: { p_review_id: string };
+        Returns: undefined;
+      };
+      moderate_review: {
+        Args: { p_review_id: string; p_status: string };
+        Returns: undefined;
+      };
+      update_complaint_status: {
+        Args: {
+          p_complaint_id: string;
+          p_status: string;
+          p_note?: string | null;
+          p_priority?: string | null;
+        };
         Returns: undefined;
       };
     };

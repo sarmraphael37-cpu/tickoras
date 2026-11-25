@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, ArrowUpRight, MapPin, ShieldCheck, Ticket } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, BadgeCheck, MapPin, ShieldCheck, Ticket } from "lucide-react";
 import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -90,10 +90,12 @@ export default async function OrganizerPage({
                     <Ticket className="h-3.5 w-3.5 text-accent-300" />
                     {events.length} upcoming event{events.length === 1 ? "" : "s"}
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <ShieldCheck className="h-3.5 w-3.5 text-accent-300" />
-                    Identity and payout details reviewed
-                  </span>
+                  {organizer.isVerified ? (
+                    <span className="flex items-center gap-1.5 text-accent-300">
+                      <BadgeCheck className="h-3.5 w-3.5" />
+                      Verified organizer
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>

@@ -553,7 +553,7 @@ export async function getOrganizerBySlug(slug: string): Promise<{
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("organizers")
-    .select("id, name, slug, logo_url, description, city, status, email")
+    .select("id, name, slug, logo_url, description, city, status, email, is_verified")
     .eq("slug", slug)
     .eq("status", "approved")
     .maybeSingle();
@@ -582,6 +582,7 @@ export async function getOrganizerBySlug(slug: string): Promise<{
       description: (data as any).description,
       city: (data as any).city,
       status: (data as any).status,
+      isVerified: Boolean((data as any).is_verified),
       email: (data as any).email,
       eventCount: (events ?? []).length,
     },

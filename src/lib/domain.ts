@@ -55,6 +55,7 @@ export interface OrganizerSummary {
   city: string | null;
   status: OrganizerStatus;
   eventCount: number;
+  isVerified?: boolean;
 }
 
 export interface TicketTypeSummary {

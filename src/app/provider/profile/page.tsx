@@ -4,13 +4,17 @@ import {
   PortfolioManager,
   ProviderProfileForm,
 } from "@/components/marketplace/marketplace-forms";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { VerificationForm } from "@/components/trust/trust-forms";
 import { requireViewer } from "@/lib/auth";
 import {
   getMyProviderProfile,
   getServiceCategories,
 } from "@/lib/data/marketplace";
+import { getMyVerificationRequest } from "@/lib/data/trust";
+import { formatDate } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Provider profile" };
@@ -95,6 +99,66 @@ export default async function ProviderProfilePage() {
           <PortfolioManager items={portfolios} />
         </CardContent>
       </Card>
+
+      <VerificationCard providerId={provider.id} isVerified={provider.is_verified} />
     </div>
+  );
+}
+
+async function VerificationCard({
+  providerId,
+  isVerified,
+}: {
+  providerId: string;
+  isVerified: boolean;
+}) {
+  const request = await getMyVerificationRequest("service_provider", providerId);
+  const active = request && ["pending", "info_requested"].includes(request.status);
+  const tone: Record<string, "success" | "warning" | "danger" | "neutral"> = {
+    approved: "success",
+    pending: "warning",
+    info_requested: "warning",
+    rejected: "danger",
+    suspended: "danger",
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-[15px]">
+          Verification
+          {isVerified ? <Badge tone="success">Verified</Badge> : null}
+          {request ? (
+            <Badge tone={tone[request.status] ?? "neutral"}>
+              {request.status.replace("_", " ")}
+            </Badge>
+          ) : null}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 pt-4">
+        {isVerified ? (
+          <p className="text-[12px] text-muted">
+            Your business is verified — the badge shows on your public profile.
+          </p>
+        ) : active ? (
+          <p className="text-[12px] text-muted">
+            Application under review
+            {request?.admin_note ? ` — ${request.admin_note}` : ""}.
+          </p>
+        ) : (
+          <>
+            <p className="text-[12px] text-muted">
+              Submit business documents (registration, ID, portfolio) to earn
+              the verified badge.
+            </p>
+            <VerificationForm subjectType="service_provider" subjectId={providerId} />
+          </>
+        )}
+        {request && !isVerified ? (
+          <p className="text-[10px] text-faint">
+            Last update {formatDate(request.updated_at)}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
