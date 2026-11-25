@@ -20,6 +20,9 @@ export function TicketSelector({
   minServiceFee,
   isPreview,
   idempotencyKey,
+  promoCode,
+  referralCode,
+  affiliateCode,
 }: {
   eventId: string;
   eventSlug: string;
@@ -29,6 +32,9 @@ export function TicketSelector({
   minServiceFee: number;
   isPreview: boolean;
   idempotencyKey: string;
+  promoCode?: string;
+  referralCode?: string;
+  affiliateCode?: string;
 }) {
   const [state, formAction] = useActionState(startBooking, initialActionState);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -75,6 +81,9 @@ export function TicketSelector({
       <input type="hidden" name="event_path" value={`/events/${eventSlug}`} />
       <input type="hidden" name="idempotency_key" value={idempotencyKey} />
       <input type="hidden" name="event_title" value={eventTitle} />
+      {promoCode ? <input type="hidden" name="promo_code" value={promoCode} /> : null}
+      {referralCode ? <input type="hidden" name="referral_code" value={referralCode} /> : null}
+      {affiliateCode ? <input type="hidden" name="affiliate_code" value={affiliateCode} /> : null}
 
       <div className="border-b border-line bg-surface px-5 py-4">
         <div className="flex items-center justify-between">

@@ -95,6 +95,11 @@ export interface OrganizerRow {
   rejection_reason: string | null;
   approved_at: string | null;
   approved_by: string | null;
+  referral_enabled: boolean;
+  referral_reward_type: "fixed" | "percent" | "discount_voucher" | "loyalty_points";
+  referral_reward_value: number;
+  affiliate_commission_type: "percent" | "fixed";
+  affiliate_commission_value: number;
   created_at: string;
   updated_at: string;
 }
@@ -176,6 +181,10 @@ export interface BookingRow {
   cancelled_at: string | null;
   refunded_at: string | null;
   client_idempotency_key: string | null;
+  discount_xaf: number;
+  promo_code_id: string | null;
+  referral_link_id: string | null;
+  affiliate_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -405,6 +414,84 @@ export interface ServiceBookingRow {
   updated_at: string;
   completed_at: string | null;
 }
+export interface PromoCodeRow {
+  id: string;
+  organizer_id: string;
+  event_id: string | null;
+  code: string;
+  description: string | null;
+  discount_type: "percent" | "fixed";
+  discount_value: number;
+  max_uses: number | null;
+  used_count: number;
+  min_order_xaf: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  status: "active" | "paused";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReferralLinkRow {
+  id: string;
+  event_id: string;
+  user_id: string;
+  code: string;
+  clicks_count: number;
+  conversions_count: number;
+  created_at: string;
+}
+
+export type AffiliateStatus = "pending" | "approved" | "rejected" | "suspended";
+
+export interface AffiliateProfileRow {
+  id: string;
+  user_id: string;
+  organizer_id: string;
+  display_name: string;
+  platform: string | null;
+  audience_size: number | null;
+  code: string;
+  status: AffiliateStatus;
+  clicks_count: number;
+  conversions_count: number;
+  total_earnings_xaf: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReferralRewardRow {
+  id: string;
+  referral_link_id: string;
+  booking_id: string;
+  reward_type: string;
+  reward_value: number;
+  reward_xaf: number;
+  status: "pending" | "approved" | "paid" | "cancelled";
+  created_at: string;
+  paid_at: string | null;
+}
+
+export interface AffiliateCommissionRow {
+  id: string;
+  affiliate_id: string;
+  booking_id: string;
+  commission_type: "percent" | "fixed";
+  commission_value: number;
+  commission_xaf: number;
+  status: "pending" | "approved" | "paid" | "cancelled";
+  created_at: string;
+  paid_at: string | null;
+}
+
+export interface PromoRedemptionRow {
+  id: string;
+  promo_code_id: string;
+  booking_id: string;
+  discount_xaf: number;
+  created_at: string;
+}
+
 export interface EventExpenseRow {
   id: string;
   organizer_id: string;
@@ -497,6 +584,12 @@ export type Database = {
       service_bookings: Table<ServiceBookingRow>;
       service_reviews: Table<ServiceReviewRow>;
       event_expenses: Table<EventExpenseRow>;
+      promo_codes: Table<PromoCodeRow>;
+      referral_links: Table<ReferralLinkRow>;
+      affiliate_profiles: Table<AffiliateProfileRow>;
+      referral_rewards: Table<ReferralRewardRow>;
+      affiliate_commissions: Table<AffiliateCommissionRow>;
+      promo_redemptions: Table<PromoRedemptionRow>;
     };
     Views: {
       event_sales_summary: { Row: Shape<EventSalesSummaryRow>; Relationships: [] };
@@ -665,6 +758,27 @@ export type Database = {
           p_latitude: number | null;
           p_longitude: number | null;
         };
+        Returns: undefined;
+      };
+      track_marketing_click: {
+        Args: { p_code: string };
+        Returns: string | null;
+      };
+      resolve_marketing_code: {
+        Args: { p_code: string };
+        Returns: Record<string, unknown> | null;
+      };
+      apply_booking_attribution: {
+        Args: {
+          p_booking_id: string;
+          p_promo_code?: string | null;
+          p_referral_code?: string | null;
+          p_affiliate_code?: string | null;
+        };
+        Returns: Record<string, unknown>;
+      };
+      set_affiliate_status: {
+        Args: { p_affiliate_id: string; p_status: string };
         Returns: undefined;
       };
     };

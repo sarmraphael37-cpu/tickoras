@@ -19,6 +19,8 @@ import { TicketSelector } from "@/components/events/ticket-selector";
 import { ShareButton } from "@/components/events/share-button";
 import { EventCard } from "@/components/events/event-card";
 import { EventMap, directionsUrl } from "@/components/maps/map-view";
+import { ReferralShareWidget } from "@/components/marketing/marketing-forms";
+import { getViewer } from "@/lib/auth";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
@@ -70,13 +72,24 @@ export async function generateMetadata({
 
 export default async function EventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { slug } = await params;
-  const [{ event, source }, settings] = await Promise.all([
+  const sp = await searchParams;
+  const first = (v: string | string[] | undefined) =>
+    Array.isArray(v) ? v[0] : v;
+  const marketingCodes = {
+    promoCode: (first(sp.promo) ?? "").slice(0, 32),
+    referralCode: (first(sp.ref) ?? "").slice(0, 32),
+    affiliateCode: (first(sp.via) ?? "").slice(0, 32),
+  };
+  const [{ event, source }, settings, viewer] = await Promise.all([
     getEventBySlug(slug),
     getPlatformSettings(),
+    getViewer(),
   ]);
   if (!event) notFound();
 
@@ -459,7 +472,16 @@ export default async function EventDetailPage({
                 minServiceFee={settings.minServiceFee}
                 isPreview={source === "demo"}
                 idempotencyKey={idempotencyKey}
+                promoCode={marketingCodes.promoCode}
+                referralCode={marketingCodes.referralCode}
+                affiliateCode={marketingCodes.affiliateCode}
               />
+
+              {viewer && source !== "demo" ? (
+                <div className="mt-4">
+                  <ReferralShareWidget eventId={event.id} eventTitle={event.title} />
+                </div>
+              ) : null}
 
               <p className="mt-3 text-center text-[10px] leading-4 text-muted">
                 By continuing you agree to the TICKORA{" "}

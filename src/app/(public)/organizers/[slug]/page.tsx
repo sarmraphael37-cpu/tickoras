@@ -8,6 +8,8 @@ import { EventCard } from "@/components/events/event-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Card } from "@/components/ui/card";
+import { AffiliateApplyForm } from "@/components/marketing/marketing-forms";
 import { getOrganizerBySlug } from "@/lib/data/public";
 
 export async function generateMetadata({
@@ -132,22 +134,36 @@ export default async function OrganizerPage({
         </section>
 
         <section className="container-page pb-16">
-          <div className="flex flex-col items-start justify-between gap-4 rounded-2xl bg-forest p-7 text-white sm:flex-row sm:items-center sm:p-9">
-            <div>
-              <p className="font-display text-[26px] leading-tight">
-                Hosting something in Cameroon?
-              </p>
-              <p className="mt-1 text-[12px] text-white/60">
-                Join the organizers using TICKORA to sell out their rooms.
-              </p>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="flex flex-col items-start justify-between gap-4 rounded-2xl bg-forest p-7 text-white sm:flex-row sm:items-center sm:p-9">
+              <div>
+                <p className="font-display text-[26px] leading-tight">
+                  Hosting something in Cameroon?
+                </p>
+                <p className="mt-1 text-[12px] text-white/60">
+                  Join the organizers using TICKORA to sell out their rooms.
+                </p>
+              </div>
+              <Link
+                href="/register?type=organizer"
+                className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-card px-5 text-[13px] font-semibold text-ice transition hover:bg-brand-50"
+              >
+                Become an organizer
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-            <Link
-              href="/register?type=organizer"
-              className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-card px-5 text-[13px] font-semibold text-ice transition hover:bg-brand-50"
-            >
-              Become an organizer
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </Link>
+            <Card className="p-5">
+              <h2 className="text-[14px] font-semibold text-ink">
+                Promote {organizer.name} as an affiliate
+              </h2>
+              <p className="mt-1 text-[11px] leading-4 text-muted">
+                Share their events with your audience and earn commission on
+                every confirmed ticket sale you drive.
+              </p>
+              <div className="mt-3">
+                <AffiliateApplyForm organizerSlug={organizer.slug} />
+              </div>
+            </Card>
           </div>
         </section>
       </main>

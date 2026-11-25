@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   CreditCard,
+  Gift,
   ExternalLink,
   FileText,
   Flag,
@@ -19,6 +20,7 @@ import {
   Inbox,
   LayoutDashboard,
   LifeBuoy,
+  Megaphone,
   LogOut,
   Menu,
   MessageSquare,
@@ -67,6 +69,7 @@ const NAV: Record<Variant, NavGroup[]> = {
         { href: "/attendee/bookings", label: "My Bookings", icon: CalendarDays },
         { href: "/attendee/tickets", label: "My Tickets", icon: Ticket },
         { href: "/attendee/payments", label: "Payments", icon: CreditCard },
+        { href: "/attendee/referrals", label: "Referrals", icon: Gift },
       ],
     },
     {
@@ -107,6 +110,7 @@ const NAV: Record<Variant, NavGroup[]> = {
         { href: "/organizer/scanners", label: "Scanner Management", icon: ShieldCheck },
         { href: "/organizer/services", label: "Service Marketplace", icon: Store },
         { href: "/organizer/finance", label: "Finances", icon: Wallet },
+        { href: "/organizer/marketing", label: "Marketing", icon: Megaphone },
       ],
     },
     {

@@ -99,6 +99,31 @@ export async function startBooking(
     return actionError("We could not create your reservation. Please try again.");
   }
 
+  // Apply promo/referral/affiliate attribution while the booking is still
+  // pending_payment. Invalid codes surface as a clear error; a failed
+  // attribution never blocks checkout (codes are optional).
+  const promoCode = String(formData.get("promo_code") ?? "").slice(0, 32);
+  const referralCode = String(formData.get("referral_code") ?? "").slice(0, 32);
+  const affiliateCode = String(formData.get("affiliate_code") ?? "").slice(0, 32);
+  if (promoCode || referralCode || affiliateCode) {
+    const { error: attrError } = await supabase.rpc("apply_booking_attribution", {
+      p_booking_id: payload.booking_id,
+      p_promo_code: promoCode || null,
+      p_referral_code: referralCode || null,
+      p_affiliate_code: affiliateCode || null,
+    });
+    if (attrError) {
+      console.warn("[tickora] attribution:", attrError.message);
+      // Promo failures are user-facing; referral/affiliate failures are silent.
+      if (attrError.message.includes("INVALID_PROMO")) {
+        await supabase.rpc("cancel_booking", { p_booking_id: payload.booking_id });
+        return actionError(
+          "That promo code is invalid or expired. Your tickets were not reserved.",
+        );
+      }
+    }
+  }
+
   redirect(`/attendee/checkout/${payload.booking_id}`);
 }
 
