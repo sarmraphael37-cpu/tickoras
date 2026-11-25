@@ -31,11 +31,11 @@ import {
   Settings,
   ShieldCheck,
   Store,
+  Wallet,
   Ticket,
   TrendingUp,
   User,
   Users,
-  Wallet,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -106,6 +106,7 @@ const NAV: Record<Variant, NavGroup[]> = {
         { href: "/organizer/payouts", label: "Payouts", icon: Wallet },
         { href: "/organizer/scanners", label: "Scanner Management", icon: ShieldCheck },
         { href: "/organizer/services", label: "Service Marketplace", icon: Store },
+        { href: "/organizer/finance", label: "Finances", icon: Wallet },
       ],
     },
     {

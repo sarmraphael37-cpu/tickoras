@@ -405,6 +405,20 @@ export interface ServiceBookingRow {
   updated_at: string;
   completed_at: string | null;
 }
+export interface EventExpenseRow {
+  id: string;
+  organizer_id: string;
+  event_id: string | null;
+  category: string;
+  description: string;
+  amount_xaf: number;
+  expense_date: string;
+  receipt_url: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ServiceReviewRow {
   id: string;
   booking_id: string;
@@ -482,6 +496,7 @@ export type Database = {
       provider_portfolios: Table<ProviderPortfolioRow>;
       service_bookings: Table<ServiceBookingRow>;
       service_reviews: Table<ServiceReviewRow>;
+      event_expenses: Table<EventExpenseRow>;
     };
     Views: {
       event_sales_summary: { Row: Shape<EventSalesSummaryRow>; Relationships: [] };

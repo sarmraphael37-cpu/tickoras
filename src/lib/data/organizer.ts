@@ -711,3 +711,99 @@ export async function getOrganizerOverview(organizerId: string) {
     },
   };
 }
+
+export interface EventExpense {
+  id: string;
+  eventId: string | null;
+  eventTitle: string | null;
+  category: string;
+  description: string;
+  amountXaf: number;
+  expenseDate: string;
+  receiptUrl: string | null;
+  createdAt: string;
+}
+
+/** All expenses for an organizer, with event titles resolved. */
+export async function listEventExpenses(
+  organizerId: string,
+): Promise<EventExpense[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("event_expenses")
+    .select("*, events(title)")
+    .eq("organizer_id", organizerId)
+    .order("expense_date", { ascending: false })
+    .limit(500);
+  return ((data ?? []) as any[]).map((row) => ({
+    id: row.id,
+    eventId: row.event_id,
+    eventTitle: row.events?.title ?? null,
+    category: row.category,
+    description: row.description,
+    amountXaf: Number(row.amount_xaf),
+    expenseDate: row.expense_date,
+    receiptUrl: row.receipt_url,
+    createdAt: row.created_at,
+  }));
+}
+
+export interface EventProfitRow {
+  eventId: string;
+  title: string;
+  grossXaf: number;
+  expensesXaf: number;
+  profitXaf: number;
+}
+
+/** Per-event revenue vs expenses. Revenue comes from confirmed bookings. */
+export async function getEventProfitability(
+  organizerId: string,
+): Promise<EventProfitRow[]> {
+  const supabase = await createClient();
+  const { data: events } = await supabase
+    .from("events")
+    .select("id, title")
+    .eq("organizer_id", organizerId);
+  const eventList = (events ?? []) as Array<{ id: string; title: string }>;
+  if (eventList.length === 0) return [];
+
+  const ids = eventList.map((e) => e.id);
+  const [{ data: bookings }, { data: expenses }] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select("event_id, subtotal_xaf")
+      .in("event_id", ids)
+      .eq("status", "confirmed"),
+    supabase
+      .from("event_expenses")
+      .select("event_id, amount_xaf")
+      .eq("organizer_id", organizerId)
+      .not("event_id", "is", null),
+  ]);
+
+  const revenue = new Map<string, number>();
+  for (const b of (bookings ?? []) as any[]) {
+    revenue.set(
+      b.event_id,
+      (revenue.get(b.event_id) ?? 0) + Number(b.subtotal_xaf ?? 0),
+    );
+  }
+  const spent = new Map<string, number>();
+  for (const e of (expenses ?? []) as any[]) {
+    if (!e.event_id) continue;
+    spent.set(e.event_id, (spent.get(e.event_id) ?? 0) + Number(e.amount_xaf ?? 0));
+  }
+
+  return eventList.map((event) => {
+    const gross = revenue.get(event.id) ?? 0;
+    const exp = spent.get(event.id) ?? 0;
+    return {
+      eventId: event.id,
+      title: event.title,
+      grossXaf: gross,
+      expensesXaf: exp,
+      profitXaf: gross - exp,
+    };
+  });
+}
