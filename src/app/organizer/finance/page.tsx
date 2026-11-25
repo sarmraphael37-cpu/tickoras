@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Download, Receipt, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { Download, Receipt, Ticket, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import {
   DeleteExpenseButton,
   ExpenseForm,
   EXPENSE_CATEGORIES,
 } from "@/components/organizer/expense-form";
+import {
+  EventProfitChart,
+  ExpenseDonut,
+  RevenueExpenseChart,
+} from "@/components/organizer/finance-charts";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,17 +19,33 @@ import { StatCard } from "@/components/ui/stat-card";
 import { requireOrganizer } from "@/lib/auth";
 import {
   getEventProfitability,
+  getOrganizerFinanceReport,
   getOrganizerFinancials,
   listEventExpenses,
   listOrganizerEvents,
 } from "@/lib/data/organizer";
 import { isSupabaseConfigured } from "@/lib/env";
-import { formatDate, formatXAF } from "@/lib/utils";
+import { cn, formatDate, formatXAF } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Finances" };
 export const dynamic = "force-dynamic";
 
-export default async function OrganizerFinancePage() {
+const PERIODS = [
+  { days: 7, label: "7 days" },
+  { days: 30, label: "30 days" },
+  { days: 90, label: "90 days" },
+  { days: 0, label: "All time" },
+] as const;
+
+export default async function OrganizerFinancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
+  const { period } = await searchParams;
+  const days = PERIODS.some((p) => String(p.days) === period)
+    ? Number(period)
+    : 30;
   const viewer = await requireOrganizer("/organizer/finance");
   if (!viewer.organizerId) {
     return (
@@ -36,12 +57,16 @@ export default async function OrganizerFinancePage() {
     );
   }
 
-  const [financials, expenses, profitability, events] = await Promise.all([
-    getOrganizerFinancials(viewer.organizerId),
-    isSupabaseConfigured ? listEventExpenses(viewer.organizerId) : [],
-    isSupabaseConfigured ? getEventProfitability(viewer.organizerId) : [],
-    listOrganizerEvents(viewer.organizerId),
-  ]);
+  const [financials, expenses, profitability, events, report] =
+    await Promise.all([
+      getOrganizerFinancials(viewer.organizerId),
+      isSupabaseConfigured ? listEventExpenses(viewer.organizerId) : [],
+      isSupabaseConfigured ? getEventProfitability(viewer.organizerId) : [],
+      listOrganizerEvents(viewer.organizerId),
+      isSupabaseConfigured
+        ? getOrganizerFinanceReport(viewer.organizerId, days)
+        : null,
+    ]);
 
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amountXaf, 0);
   // Net revenue after refunds and platform fees, minus recorded expenses.
@@ -61,6 +86,21 @@ export default async function OrganizerFinancePage() {
   const categoryLabel = (value: string) =>
     EXPENSE_CATEGORIES.find((c) => c.value === value)?.label ?? value;
 
+  // Period-scoped expense breakdown for the donut chart.
+  const sinceDate =
+    days > 0 ? new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10) : null;
+  const periodExpenseMap = new Map<string, number>();
+  for (const expense of expenses) {
+    if (sinceDate && expense.expenseDate < sinceDate) continue;
+    periodExpenseMap.set(
+      categoryLabel(expense.category),
+      (periodExpenseMap.get(categoryLabel(expense.category)) ?? 0) + expense.amountXaf,
+    );
+  }
+  const periodExpenseBreakdown = Array.from(periodExpenseMap.entries())
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -77,32 +117,141 @@ export default async function OrganizerFinancePage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Gross ticket sales"
-          value={formatXAF(financials.grossSales)}
-          hint={`${financials.confirmedBookings} confirmed bookings`}
-          icon={TrendingUp}
-        />
-        <StatCard
-          label="Platform fees"
-          value={formatXAF(financials.platformFees)}
-          hint="TICKORA service fee"
-          icon={Receipt}
-        />
-        <StatCard
-          label="Total expenses"
-          value={formatXAF(totalExpenses)}
-          hint={`${expenses.length} recorded`}
-          icon={TrendingDown}
-        />
-        <StatCard
-          label="Estimated profit"
-          value={formatXAF(estimatedProfit)}
-          hint="Net revenue minus expenses"
-          icon={Wallet}
-        />
+      {/* Period selector */}
+      <div className="flex flex-wrap gap-2">
+        {PERIODS.map((p) => (
+          <Link
+            key={p.days}
+            href={p.days === 30 ? "/organizer/finance" : `/organizer/finance?period=${p.days}`}
+            className={cn(
+              "rounded-full border px-3.5 py-1.5 text-[11px] font-medium transition",
+              days === p.days
+                ? "border-forest bg-forest text-white"
+                : "border-line bg-card text-muted hover:text-ink",
+            )}
+          >
+            {p.label}
+          </Link>
+        ))}
       </div>
+
+      {/* Headline metrics — period-scoped, real transactions only */}
+      {report ? (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Ticket revenue (gross)"
+              value={formatXAF(report.grossRevenueXaf)}
+              hint={`${report.bookingsConfirmed} confirmed bookings · ${formatXAF(report.discountsXaf)} discounts`}
+              icon={TrendingUp}
+            />
+            <StatCard
+              label="Net revenue"
+              value={formatXAF(report.netRevenueXaf)}
+              hint={`After ${formatXAF(report.refundsXaf)} refunds`}
+              icon={Receipt}
+            />
+            <StatCard
+              label="Platform fees"
+              value={formatXAF(report.platformFeesXaf)}
+              hint="TICKORA commission on confirmed sales"
+              icon={Receipt}
+            />
+            <StatCard
+              label="Expenses"
+              value={formatXAF(report.expensesXaf)}
+              hint={`${expenses.length} records (all time)`}
+              icon={TrendingDown}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Tickets sold"
+              value={String(report.ticketsSold)}
+              hint="Confirmed bookings only"
+              icon={Ticket}
+            />
+            <StatCard
+              label="Successful payments"
+              value={String(report.paymentsSucceeded)}
+              hint={`${report.paymentsFailed} failed · ${report.paymentsPending} pending`}
+              icon={Wallet}
+            />
+            <StatCard
+              label="Pending payments"
+              value={String(report.bookingsPending)}
+              hint="Not counted as revenue"
+              icon={Receipt}
+            />
+            <StatCard
+              label="Estimated profit"
+              value={formatXAF(report.estimatedProfitXaf)}
+              hint={`Settled ${formatXAF(report.settledRevenueXaf)} − expenses`}
+              icon={Wallet}
+            />
+          </div>
+        </>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Gross ticket sales"
+            value={formatXAF(financials.grossSales)}
+            hint={`${financials.confirmedBookings} confirmed bookings`}
+            icon={TrendingUp}
+          />
+          <StatCard
+            label="Platform fees"
+            value={formatXAF(financials.platformFees)}
+            hint="TICKORA service fee"
+            icon={Receipt}
+          />
+          <StatCard
+            label="Total expenses"
+            value={formatXAF(totalExpenses)}
+            hint={`${expenses.length} recorded`}
+            icon={TrendingDown}
+          />
+          <StatCard
+            label="Estimated profit"
+            value={formatXAF(estimatedProfit)}
+            hint="Net revenue minus expenses"
+            icon={Wallet}
+          />
+        </div>
+      )}
+
+      {/* Charts */}
+      {report ? (
+        <div className="grid gap-5 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-[15px]">Revenue vs expenses</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <RevenueExpenseChart data={report.daily} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-[15px]">Expense distribution</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <ExpenseDonut data={periodExpenseBreakdown} />
+            </CardContent>
+          </Card>
+          {report.byEvent.length > 0 ? (
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-[15px]">Profitability by event</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-2">
+                <EventProfitChart data={report.byEvent} />
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-5">

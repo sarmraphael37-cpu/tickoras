@@ -807,3 +807,199 @@ export async function getEventProfitability(
     };
   });
 }
+
+export interface FinanceReport {
+  period: string;
+  grossRevenueXaf: number;
+  discountsXaf: number;
+  netRevenueXaf: number;
+  platformFeesXaf: number;
+  refundsXaf: number;
+  expensesXaf: number;
+  estimatedProfitXaf: number;
+  settledRevenueXaf: number;
+  ticketsSold: number;
+  bookingsConfirmed: number;
+  bookingsPending: number;
+  bookingsCancelled: number;
+  paymentsSucceeded: number;
+  paymentsFailed: number;
+  paymentsPending: number;
+  daily: Array<{ date: string; revenue: number; expenses: number }>;
+  byEvent: Array<{
+    eventId: string;
+    title: string;
+    revenue: number;
+    expenses: number;
+    profit: number;
+    tickets: number;
+  }>;
+}
+
+/** Full organizer finance report computed from real booking/payment/expense
+ *  records. Pending payments never count as revenue. */
+export async function getOrganizerFinanceReport(
+  organizerId: string,
+  days: number,
+): Promise<FinanceReport> {
+  const supabase = await createClient();
+  const since =
+    days > 0 ? new Date(Date.now() - days * 86400_000).toISOString() : null;
+
+  const { data: eventRows } = await supabase
+    .from("events")
+    .select("id, title")
+    .eq("organizer_id", organizerId);
+  const events = (eventRows ?? []) as Array<{ id: string; title: string }>;
+  const eventIds = events.map((e) => e.id);
+  const titleById = new Map(events.map((e) => [e.id, e.title]));
+
+  const empty: FinanceReport = {
+    period: days > 0 ? `${days}d` : "all",
+    grossRevenueXaf: 0, discountsXaf: 0, netRevenueXaf: 0,
+    platformFeesXaf: 0, refundsXaf: 0, expensesXaf: 0,
+    estimatedProfitXaf: 0, settledRevenueXaf: 0,
+    ticketsSold: 0, bookingsConfirmed: 0, bookingsPending: 0,
+    bookingsCancelled: 0, paymentsSucceeded: 0, paymentsFailed: 0,
+    paymentsPending: 0, daily: [], byEvent: [],
+  };
+  if (eventIds.length === 0) return empty;
+
+  let bookingQuery = supabase
+    .from("bookings")
+    .select("id, event_id, status, subtotal_xaf, service_fee_xaf, discount_xaf, total_xaf, confirmed_at, created_at")
+    .in("event_id", eventIds);
+  if (since) bookingQuery = bookingQuery.gte("created_at", since);
+  const { data: bookings } = await bookingQuery;
+  const bookingList = (bookings ?? []) as any[];
+  const bookingIds = bookingList.map((b) => b.id);
+
+  const { data: items } = bookingIds.length
+    ? await supabase
+        .from("booking_items")
+        .select("booking_id, quantity")
+        .in("booking_id", bookingIds)
+    : { data: [] };
+  const qtyByBooking = new Map<string, number>();
+  for (const item of (items ?? []) as any[]) {
+    qtyByBooking.set(
+      item.booking_id,
+      (qtyByBooking.get(item.booking_id) ?? 0) + Number(item.quantity),
+    );
+  }
+
+  const { data: payments } = bookingIds.length
+    ? await supabase
+        .from("payments")
+        .select("booking_id, status, amount_xaf")
+        .in("booking_id", bookingIds)
+    : { data: [] };
+
+  const { data: refunds } = bookingIds.length
+    ? await supabase
+        .from("refunds")
+        .select("booking_id, amount_xaf, status")
+        .in("booking_id", bookingIds)
+    : { data: [] };
+
+  let expenseQuery = supabase
+    .from("event_expenses")
+    .select("event_id, amount_xaf, expense_date")
+    .eq("organizer_id", organizerId);
+  if (since) expenseQuery = expenseQuery.gte("expense_date", since.slice(0, 10));
+  const { data: expenses } = await expenseQuery;
+
+  // ---- aggregates ---------------------------------------------------------
+  const confirmed = bookingList.filter((b) => b.status === "confirmed");
+  const gross = confirmed.reduce((s, b) => s + Number(b.subtotal_xaf ?? 0), 0);
+  const discounts = confirmed.reduce((s, b) => s + Number(b.discount_xaf ?? 0), 0);
+  const fees = confirmed.reduce((s, b) => s + Number(b.service_fee_xaf ?? 0), 0);
+  const refundsTotal = ((refunds ?? []) as any[])
+    .filter((r) => ["approved", "processed"].includes(r.status))
+    .reduce((s, r) => s + Number(r.amount_xaf ?? 0), 0);
+  const expensesTotal = ((expenses ?? []) as any[]).reduce(
+    (s, e) => s + Number(e.amount_xaf ?? 0),
+    0,
+  );
+  const net = Math.max(0, gross - refundsTotal - discounts);
+  const settled = Math.max(0, net - fees);
+
+  const payList = (payments ?? []) as any[];
+  const paySucceeded = payList.filter((p) => p.status === "succeeded").length;
+  const payFailed = payList.filter((p) => p.status === "failed").length;
+  const payPending = payList.filter((p) =>
+    ["initiated", "pending"].includes(p.status),
+  ).length;
+
+  // ---- daily series --------------------------------------------------------
+  const dayMap = new Map<string, { revenue: number; expenses: number }>();
+  const bump = (date: string, key: "revenue" | "expenses", amount: number) => {
+    const d = dayMap.get(date) ?? { revenue: 0, expenses: 0 };
+    d[key] += amount;
+    dayMap.set(date, d);
+  };
+  for (const b of confirmed) {
+    const day = (b.confirmed_at ?? b.created_at ?? "").slice(0, 10);
+    if (day) bump(day, "revenue", Number(b.subtotal_xaf ?? 0));
+  }
+  for (const e of (expenses ?? []) as any[]) {
+    bump(String(e.expense_date).slice(0, 10), "expenses", Number(e.amount_xaf ?? 0));
+  }
+  const daily = Array.from(dayMap.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, v]) => ({ date, revenue: v.revenue, expenses: v.expenses }));
+
+  // ---- per-event ------------------------------------------------------------
+  const perEvent = new Map<
+    string,
+    { revenue: number; expenses: number; tickets: number; confirmed: number }
+  >();
+  for (const b of confirmed) {
+    const cur = perEvent.get(b.event_id) ?? { revenue: 0, expenses: 0, tickets: 0, confirmed: 0 };
+    cur.revenue += Number(b.subtotal_xaf ?? 0);
+    cur.tickets += qtyByBooking.get(b.id) ?? 0;
+    cur.confirmed += 1;
+    perEvent.set(b.event_id, cur);
+  }
+  for (const e of (expenses ?? []) as any[]) {
+    if (!e.event_id) continue;
+    const cur = perEvent.get(e.event_id) ?? { revenue: 0, expenses: 0, tickets: 0, confirmed: 0 };
+    cur.expenses += Number(e.amount_xaf ?? 0);
+    perEvent.set(e.event_id, cur);
+  }
+  const byEvent = events
+    .map((event) => {
+      const v = perEvent.get(event.id) ?? { revenue: 0, expenses: 0, tickets: 0, confirmed: 0 };
+      return {
+        eventId: event.id,
+        title: event.title,
+        revenue: v.revenue,
+        expenses: v.expenses,
+        profit: v.revenue - v.expenses,
+        tickets: v.tickets,
+      };
+    })
+    .filter((r) => r.revenue > 0 || r.expenses > 0)
+    .sort((a, b) => b.profit - a.profit);
+
+  return {
+    ...empty,
+    grossRevenueXaf: gross,
+    discountsXaf: discounts,
+    netRevenueXaf: net,
+    platformFeesXaf: fees,
+    refundsXaf: refundsTotal,
+    expensesXaf: expensesTotal,
+    estimatedProfitXaf: settled - expensesTotal,
+    settledRevenueXaf: settled,
+    ticketsSold: confirmed.reduce((s, b) => s + (qtyByBooking.get(b.id) ?? 0), 0),
+    bookingsConfirmed: confirmed.length,
+    bookingsPending: bookingList.filter((b) => b.status === "pending_payment").length,
+    bookingsCancelled: bookingList.filter((b) => b.status === "cancelled").length,
+    paymentsSucceeded: paySucceeded,
+    paymentsFailed: payFailed,
+    paymentsPending: payPending,
+    daily,
+    byEvent,
+  };
+}
