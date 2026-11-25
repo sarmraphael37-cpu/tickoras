@@ -145,6 +145,84 @@ export interface PublicReviewRow {
   review_count?: number;
 }
 
+export type SubscriptionStatus =
+  | "active"
+  | "past_due"
+  | "cancelled"
+  | "expired";
+export type PlatformPaymentKind = "subscription" | "featured";
+export type PlatformPaymentStatus =
+  | "pending"
+  | "succeeded"
+  | "failed"
+  | "refunded";
+export type FeaturedPromotionStatus =
+  | "pending"
+  | "active"
+  | "completed"
+  | "cancelled"
+  | "refunded";
+
+export interface SubscriptionPlanRow {
+  id: string;
+  code: "starter" | "professional" | "enterprise";
+  name: string;
+  price_xaf: number;
+  billing_months: number;
+  features: Record<string, boolean | number>;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrganizerSubscriptionRow {
+  id: string;
+  organizer_id: string;
+  plan_id: string;
+  status: SubscriptionStatus;
+  current_period_start: string;
+  current_period_end: string;
+  cancel_at_period_end: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlatformPaymentRow {
+  id: string;
+  organizer_id: string;
+  kind: PlatformPaymentKind;
+  plan_id: string | null;
+  featured_promotion_id: string | null;
+  amount_xaf: number;
+  currency: string;
+  provider: PaymentProvider;
+  status: PlatformPaymentStatus;
+  provider_reference: string | null;
+  idempotency_key: string;
+  is_demo: boolean;
+  failure_reason: string | null;
+  metadata: Record<string, unknown>;
+  initiated_at: string;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FeaturedPromotionRow {
+  id: string;
+  organizer_id: string;
+  event_id: string;
+  placement: "homepage" | "sponsored" | "featured_badge";
+  starts_at: string;
+  ends_at: string;
+  amount_xaf: number;
+  status: FeaturedPromotionStatus;
+  platform_payment_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type ComplaintStatus = "open" | "investigating" | "resolved" | "rejected";
 
 export interface ComplaintRow {
@@ -656,6 +734,10 @@ export type Database = {
       verification_requests: Table<VerificationRequestRow>;
       public_reviews: Table<PublicReviewRow>;
       complaints: Table<ComplaintRow>;
+      subscription_plans: Table<SubscriptionPlanRow>;
+      organizer_subscriptions: Table<OrganizerSubscriptionRow>;
+      platform_payments: Table<PlatformPaymentRow>;
+      featured_promotions: Table<FeaturedPromotionRow>;
     };
     Views: {
       event_sales_summary: { Row: Shape<EventSalesSummaryRow>; Relationships: [] };
@@ -876,6 +958,34 @@ export type Database = {
           p_note?: string | null;
           p_priority?: string | null;
         };
+        Returns: undefined;
+      };
+      create_platform_payment: {
+        Args: {
+          p_organizer_id: string;
+          p_kind: string;
+          p_amount_xaf: number;
+          p_provider: string;
+          p_idempotency_key: string;
+          p_plan_id?: string | null;
+          p_metadata?: Json;
+        };
+        Returns: string;
+      };
+      confirm_platform_payment: {
+        Args: { p_payment_id: string };
+        Returns: Json;
+      };
+      admin_settle_platform_payment: {
+        Args: { p_payment_id: string; p_reference?: string | null };
+        Returns: Json;
+      };
+      cancel_subscription: {
+        Args: { p_subscription_id: string };
+        Returns: undefined;
+      };
+      admin_update_plan: {
+        Args: { p_plan_id: string; p_price_xaf: number; p_is_active?: boolean | null };
         Returns: undefined;
       };
     };

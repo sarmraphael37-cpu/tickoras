@@ -340,18 +340,28 @@ export async function getFeaturedEvents(limit = 4): Promise<EventSummary[]> {
     return demoEventSummaries.filter((e) => e.isFeatured).slice(0, limit);
   }
   const supabase = await createClient();
-  const run = (select: string) =>
-    supabase
+  const run = (select: string, checkExpiry: boolean) => {
+    let q = supabase
       .from("events")
       .select(select)
       .eq("status", "published")
-      .eq("is_featured", true)
+      .eq("is_featured", true);
+    if (checkExpiry) {
+      q = q.or("featured_ends_at.is.null,featured_ends_at.gt.now()");
+    }
+    return q
       .gte("start_at", new Date().toISOString())
       .order("start_at", { ascending: true })
       .limit(limit);
-  let { data, error } = await run(EVENT_SELECT);
+  };
+  let { data, error } = await run(EVENT_SELECT, true);
   if (isMissingColumnError(error)) {
-    ({ data, error } = await run(EVENT_SELECT_LEGACY));
+    // Monetization migration not applied yet — featured_ends_at missing.
+    ({ data, error } = await run(EVENT_SELECT, false));
+  }
+  if (isMissingColumnError(error)) {
+    // Location migration not applied either — drop coordinate columns too.
+    ({ data, error } = await run(EVENT_SELECT_LEGACY, false));
   }
   if (error) {
     console.error("[tickora] featured query failed:", error.message);
