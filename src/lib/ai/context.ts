@@ -55,6 +55,8 @@ export interface OrganizerInsights {
     capacity: number;
     sellThroughPct: number;
   }>;
+  topAffiliate: { name: string; conversions: number; clicks: number } | null;
+  topPromo: { code: string; redemptions: number; discountXaf: number } | null;
 }
 
 /** Aggregate real, organizer-scoped business data for the assistant. */
@@ -92,13 +94,15 @@ export async function buildOrganizerInsights(
         attributedRevenueXaf: 0, marketingSpendXaf: 0, roas: null,
       },
       ticketTierVelocity: [],
+      topAffiliate: null,
+      topPromo: null,
     };
   }
 
   const eventIds = events.map((e) => e.id);
   const now = Date.now();
 
-  const [tiersRes, bookingsRes, finance30, marketing, expensesRes] =
+  const [tiersRes, bookingsRes, finance30, marketing, expensesRes, topAffRes, promoIdsRes] =
     await Promise.all([
       supabase
         .from("ticket_types")
@@ -115,7 +119,50 @@ export async function buildOrganizerInsights(
         .from("event_expenses")
         .select("event_id, amount_xaf")
         .eq("organizer_id", organizerId),
+      supabase
+        .from("affiliate_profiles")
+        .select("display_name, conversions_count, clicks_count")
+        .eq("organizer_id", organizerId)
+        .eq("status", "approved")
+        .order("conversions_count", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("promo_codes")
+        .select("id")
+        .eq("organizer_id", organizerId),
     ]);
+
+  // Top promo by confirmed redemptions
+  const promoIds = ((promoIdsRes.data ?? []) as any[]).map((p) => p.id);
+  let topPromo: OrganizerInsights["topPromo"] = null;
+  if (promoIds.length > 0) {
+    const { data: redemptions } = await supabase
+      .from("promo_redemptions")
+      .select("promo_code_id, discount_xaf, bookings!inner(status)")
+      .in("promo_code_id", promoIds);
+    const counts = new Map<string, { n: number; discount: number }>();
+    for (const r of (redemptions ?? []) as any[]) {
+      if (r.bookings?.status !== "confirmed") continue;
+      const cur = counts.get(r.promo_code_id) ?? { n: 0, discount: 0 };
+      cur.n += 1;
+      cur.discount += Number(r.discount_xaf ?? 0);
+      counts.set(r.promo_code_id, cur);
+    }
+    const best = Array.from(counts.entries()).sort((a, b) => b[1].n - a[1].n)[0];
+    if (best) {
+      const { data: pc } = await supabase
+        .from("promo_codes")
+        .select("code")
+        .eq("id", best[0])
+        .single();
+      topPromo = {
+        code: (pc as any)?.code ?? "?",
+        redemptions: best[1].n,
+        discountXaf: best[1].discount,
+      };
+    }
+  }
 
   const tiers = (tiersRes.data ?? []) as any[];
   const bookings = (bookingsRes.data ?? []) as any[];
@@ -252,5 +299,13 @@ export async function buildOrganizerInsights(
           : null,
     },
     ticketTierVelocity,
+    topAffiliate: topAffRes.data
+      ? {
+          name: (topAffRes.data as any).display_name,
+          conversions: Number((topAffRes.data as any).conversions_count ?? 0),
+          clicks: Number((topAffRes.data as any).clicks_count ?? 0),
+        }
+      : null,
+    topPromo,
   };
 }

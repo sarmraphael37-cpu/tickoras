@@ -51,6 +51,8 @@ const base: OrganizerInsights = {
     { eventTitle: "Test Concert", tier: "Regular", sold: 80, capacity: 100, sellThroughPct: 80 },
     { eventTitle: "Test Concert", tier: "VIP", sold: 0, capacity: 20, sellThroughPct: 0 },
   ],
+  topAffiliate: { name: "DJ Kay", conversions: 2, clicks: 50 },
+  topPromo: { code: "EARLYBIRD", redemptions: 5, discountXaf: 20000 },
 };
 
 describe("assistant intents", () => {
@@ -80,6 +82,9 @@ describe("assistant intents", () => {
   it("handles marketing questions", () => {
     const r = answerQuestion("which channel performs best?", base);
     expect(r.answer).toContain("ROAS");
+    expect(r.answer).toContain("DJ Kay");
+    expect(r.answer).toContain("EARLYBIRD");
+    expect(r.answer).toContain("Regular");
   });
 
   it("falls back gracefully on unknown input", () => {

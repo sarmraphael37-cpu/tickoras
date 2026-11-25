@@ -184,6 +184,24 @@ function answerMarketing(data: OrganizerInsights): AssistantReply {
       ? `Attributed revenue ${fmt(m.attributedRevenueXaf)} vs ${fmt(m.marketingSpendXaf)} spend → ROAS ${m.roas}x.`
       : `Attributed revenue ${fmt(m.attributedRevenueXaf)}; no marketing expenses logged yet.`,
   );
+  if (data.topAffiliate && data.topAffiliate.conversions > 0) {
+    parts.push(
+      `Top affiliate: **${data.topAffiliate.name}** with ${data.topAffiliate.conversions} confirmed conversions (${data.topAffiliate.clicks} clicks).`,
+    );
+  }
+  if (data.topPromo && data.topPromo.redemptions > 0) {
+    parts.push(
+      `Best promo code: **${data.topPromo.code}** — ${data.topPromo.redemptions} confirmed redemptions (${fmt(data.topPromo.discountXaf)} discounts given).`,
+    );
+  }
+  const fastest = [...data.ticketTierVelocity].sort(
+    (a, b) => b.sellThroughPct - a.sellThroughPct,
+  )[0];
+  if (fastest && fastest.sellThroughPct > 0) {
+    parts.push(
+      `Fastest-selling tier: **${fastest.tier}** (${fastest.eventTitle}) at ${fastest.sellThroughPct}% sell-through.`,
+    );
+  }
   return {
     answer: parts.join("\n"),
     highlights: [
@@ -197,15 +215,18 @@ function answerMarketing(data: OrganizerInsights): AssistantReply {
 
 function answerAffiliate(data: OrganizerInsights): AssistantReply {
   const m = data.marketing;
+  const top = data.topAffiliate;
   return {
     answer: `Your affiliate program: **${m.affiliateClicks} link clicks → ${m.affiliateConversions} confirmed conversions** (${(
       m.affiliateClicks > 0
         ? ((m.affiliateConversions / m.affiliateClicks) * 100).toFixed(1)
         : 0
     )}%).\n\n${
-      m.affiliateConversions > 0
-        ? "Affiliates are driving real sales — check the Marketing dashboard for per-affiliate earnings and consider raising commission for your top performers."
-        : "No affiliate conversions yet. Share your organizer page so creators can apply, and approve applicants in Marketing → Affiliates."
+      top && top.conversions > 0
+        ? `Top performer: **${top.name}** — ${top.conversions} conversions from ${top.clicks} clicks. Consider increasing their commission or recruiting similar creators.`
+        : m.affiliateConversions > 0
+          ? "Affiliates are driving real sales — check the Marketing dashboard for per-affiliate earnings."
+          : "No affiliate conversions yet. Share your organizer page so creators can apply, and approve applicants in Marketing → Affiliates."
     }`,
   };
 }
